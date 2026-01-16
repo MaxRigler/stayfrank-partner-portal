@@ -1,5 +1,6 @@
 // StayFrank Supabase Edge Function: atom-property-lookup
 // This function looks up property data from ATTOM API
+// Uses 3 endpoints like EquityAdvance: property profile, AVM, and mortgage history
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -14,6 +15,9 @@ interface AtomResponse {
     propertyType: string;
     estimatedValue: number;
     estimatedMortgageBalance: number;
+    rawPropertyData?: any;
+    rawAvmData?: any;
+    rawMortgageHistory?: any;
 }
 
 serve(async (req) => {
@@ -45,91 +49,176 @@ serve(async (req) => {
 
         console.log("Looking up property:", address);
 
-        // Call ATTOM Property API - Address lookup
         const encodedAddress = encodeURIComponent(address);
-        const attomUrl = `https://api.gateway.attomdata.com/propertyapi/v1.0.0/property/expandedprofile?address=${encodedAddress}`;
+        const headers = {
+            "Accept": "application/json",
+            "apikey": attomApiKey,
+        };
 
-        const response = await fetch(attomUrl, {
-            method: "GET",
-            headers: {
-                "Accept": "application/json",
-                "apikey": attomApiKey,
-            },
-        });
+        // ============================================
+        // STEP 1: Fetch Property Profile (basic data)
+        // ============================================
+        console.log("Fetching property data from Atom...");
+        const propertyUrl = `https://api.gateway.attomdata.com/propertyapi/v1.0.0/property/basicprofile?address=${encodedAddress}`;
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("ATTOM API error:", response.status, errorText);
+        const propertyResponse = await fetch(propertyUrl, { method: "GET", headers });
+
+        if (!propertyResponse.ok) {
+            const errorText = await propertyResponse.text();
+            console.error("ATTOM Property API error:", propertyResponse.status, errorText);
             return new Response(
-                JSON.stringify({ error: `Failed to lookup property: ${response.status}` }),
-                { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                JSON.stringify({ error: `Failed to lookup property: ${propertyResponse.status}` }),
+                { status: propertyResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const data = await response.json();
-        console.log("ATTOM response received");
+        const propertyData = await propertyResponse.json();
+        console.log("Property data received");
 
-        // Extract property data from ATTOM response
-        const property = data?.property?.[0];
+        // Extract property from response
+        const property = propertyData?.property?.[0];
 
         if (!property) {
-            console.log("No property found in response:", JSON.stringify(data, null, 2));
+            console.log("No property found in response");
             return new Response(
                 JSON.stringify({ error: "Property not found" }),
                 { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // Log available data paths for debugging
-        console.log("Property keys:", Object.keys(property));
-        console.log("AVM data:", JSON.stringify(property.avm, null, 2));
-        console.log("Assessment data:", JSON.stringify(property.assessment, null, 2));
-        console.log("Sale data:", JSON.stringify(property.sale, null, 2));
+        // ============================================
+        // STEP 2: Fetch AVM Data (property valuation)
+        // ============================================
+        console.log("Fetching AVM data from Atom...");
+        const avmUrl = `https://api.gateway.attomdata.com/propertyapi/v1.0.0/attomavm/detail?address=${encodedAddress}`;
 
-        // Parse owner names - check multiple paths
+        let avmData = null;
+        let avmValue = 0;
+
+        try {
+            const avmResponse = await fetch(avmUrl, { method: "GET", headers });
+
+            if (avmResponse.ok) {
+                avmData = await avmResponse.json();
+                console.log("AVM data received");
+
+                // Extract AVM value from response
+                const avmProperty = avmData?.property?.[0];
+                if (avmProperty?.avm?.amount?.value) {
+                    avmValue = avmProperty.avm.amount.value;
+                    console.log("AVM value found:", avmValue);
+                }
+            } else {
+                console.log("AVM endpoint returned:", avmResponse.status);
+            }
+        } catch (avmError) {
+            console.error("AVM fetch error:", avmError);
+        }
+
+        // ============================================
+        // STEP 3: Fetch Mortgage History (fallback)
+        // ============================================
+        console.log("Fetching Mortgage History from Atom (fallback)...");
+        const mortgageUrl = `https://api.gateway.attomdata.com/propertyapi/v1.0.0/property/basicprofile?address=${encodedAddress}`;
+
+        let mortgageData = null;
+        let mortgageRecords: any[] = [];
+
+        try {
+            const mortgageResponse = await fetch(mortgageUrl, { method: "GET", headers });
+
+            if (mortgageResponse.ok) {
+                mortgageData = await mortgageResponse.json();
+                mortgageRecords = mortgageData?.property || [];
+                console.log(`Found ${mortgageRecords.length} mortgage records`);
+            } else {
+                console.log("Mortgage endpoint returned:", mortgageResponse.status);
+            }
+        } catch (mortgageError) {
+            console.error("Mortgage fetch error:", mortgageError);
+        }
+
+        // ============================================
+        // Parse and combine data from all endpoints
+        // ============================================
+
+        // Parse owner names from AVM data first (more complete), then property data
         let ownerNames = "Unknown Owner";
-        const owner = property.assessment?.owner;
-        if (owner) {
+        const avmProperty = avmData?.property?.[0];
+
+        // Try AVM data first for owner
+        if (avmProperty?.owner?.owner1?.fullname) {
+            const owner1 = avmProperty.owner.owner1.fullname || "";
+            const owner2 = avmProperty.owner?.owner2?.fullname || "";
+            ownerNames = [owner1, owner2].filter(Boolean).join(", ") || "Unknown Owner";
+        }
+        // Fallback to property data
+        else if (property.assessment?.owner) {
+            const owner = property.assessment.owner;
             const owner1 = owner.owner1?.fullName || owner.owner1?.lastNameAndSuffix || "";
             const owner2 = owner.owner2?.fullName || owner.owner2?.lastNameAndSuffix || "";
             ownerNames = [owner1, owner2].filter(Boolean).join(", ") || "Unknown Owner";
         }
 
         // Get state from address
-        const state = property.address?.countrySubd || "";
+        const state = avmProperty?.address?.countrySubd || property.address?.countrySubd || "";
 
         // Get property type
-        const propertyType = property.summary?.propertyType || "Single Family";
+        const propertyType = avmProperty?.summary?.propertyType || property.summary?.propertyType || "Single Family";
 
-        // Get estimated value - try multiple paths
-        let estimatedValue =
-            // AVM (Automated Valuation Model)
-            property.avm?.amount?.value ||
-            property.avm?.avmValue ||
-            // Assessment values
-            property.assessment?.market?.mktTotalValue ||
-            property.assessment?.assessed?.assdTotalValue ||
-            // Sale history
-            property.sale?.saleTransactionDate?.salesPrice ||
-            property.sale?.amount?.saleamt ||
-            // Building value + land value
-            (property.assessment?.assessed?.assdImprValue || 0) + (property.assessment?.assessed?.assdLandValue || 0) ||
-            0;
+        // ============================================
+        // Determine Estimated Value (priority order)
+        // ============================================
+        let estimatedValue = 0;
 
-        console.log("Extracted estimatedValue:", estimatedValue);
-
-        // Estimate mortgage balance from loan data if available
-        let estimatedMortgageBalance = 0;
-        const mortgage = property.assessment?.mortgage;
-        if (mortgage?.FirstConcurrent?.amount) {
-            estimatedMortgageBalance = mortgage.FirstConcurrent.amount;
-        } else if (mortgage?.amount) {
-            estimatedMortgageBalance = mortgage.amount;
-        } else if (property.mortgage?.amount) {
-            estimatedMortgageBalance = property.mortgage.amount;
+        // Priority 1: AVM value (most accurate current market estimate)
+        if (avmValue > 0) {
+            estimatedValue = avmValue;
+            console.log("Using AVM value:", estimatedValue);
+        }
+        // Priority 2: Assessment market value
+        else if (avmProperty?.assessment?.market?.mktttlvalue) {
+            estimatedValue = avmProperty.assessment.market.mktttlvalue;
+            console.log("Using AVM assessment market value:", estimatedValue);
+        }
+        else if (property.assessment?.market?.mktTtlValue) {
+            estimatedValue = property.assessment.market.mktTtlValue;
+            console.log("Using property assessment market value:", estimatedValue);
+        }
+        // Priority 3: Assessment assessed value
+        else if (property.assessment?.assessed?.assdTtlValue) {
+            estimatedValue = property.assessment.assessed.assdTtlValue;
+            console.log("Using assessed value:", estimatedValue);
+        }
+        // Priority 4: Recent sale price
+        else if (avmProperty?.sale?.amount?.saleAmt) {
+            estimatedValue = avmProperty.sale.amount.saleAmt;
+            console.log("Using sale amount:", estimatedValue);
         }
 
-        console.log("Extracted estimatedMortgageBalance:", estimatedMortgageBalance);
+        // ============================================
+        // Determine Mortgage Balance
+        // ============================================
+        let estimatedMortgageBalance = 0;
+
+        // Try AVM data first
+        if (avmProperty?.sale?.mortgage?.FirstConcurrent?.amount) {
+            estimatedMortgageBalance = avmProperty.sale.mortgage.FirstConcurrent.amount;
+        }
+        // Try mortgage history
+        else if (mortgageRecords.length > 0) {
+            const latestMortgage = mortgageRecords[0];
+            if (latestMortgage?.mortgage?.amount) {
+                estimatedMortgageBalance = latestMortgage.mortgage.amount;
+            }
+        }
+        // Try property data
+        else if (property.mortgage?.FirstConcurrent?.amount) {
+            estimatedMortgageBalance = property.mortgage.FirstConcurrent.amount;
+        }
+        else if (property.mortgage?.amount) {
+            estimatedMortgageBalance = property.mortgage.amount;
+        }
 
         const result: AtomResponse = {
             ownerNames,
@@ -137,9 +226,12 @@ serve(async (req) => {
             propertyType,
             estimatedValue: Math.round(estimatedValue),
             estimatedMortgageBalance: Math.round(estimatedMortgageBalance),
+            rawPropertyData: propertyData,
+            rawAvmData: avmData,
+            rawMortgageHistory: mortgageData,
         };
 
-        console.log("Returning property data:", result);
+        console.log("Returning result:", JSON.stringify(result));
 
         return new Response(
             JSON.stringify(result),
