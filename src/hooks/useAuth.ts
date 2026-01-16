@@ -26,6 +26,7 @@ export function useAuth(): UseAuthReturn {
 
   const checkAdminRole = useCallback(async (userId: string) => {
     try {
+      console.log('Checking admin role for user:', userId);
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -33,12 +34,16 @@ export function useAuth(): UseAuthReturn {
         .eq('role', 'admin')
         .maybeSingle();
 
+      console.log('Admin role check result:', { data, error });
+
       if (error) {
         console.error('Error checking admin role:', error);
         return false;
       }
 
-      return !!data;
+      const isAdmin = !!data;
+      console.log('Is admin:', isAdmin);
+      return isAdmin;
     } catch (err) {
       console.error('Error in checkAdminRole:', err);
       return false;
@@ -47,21 +52,26 @@ export function useAuth(): UseAuthReturn {
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('role, status')
         .eq('id', userId)
         .maybeSingle();
 
+      console.log('Profile fetch result:', { data, error });
+
       if (error) {
         console.error('Error fetching profile:', error);
         return { role: null, status: null };
       }
 
-      return {
+      const result = {
         role: data?.role as UserRole | null,
         status: data?.status as UserStatus | null,
       };
+      console.log('Returning profile:', result);
+      return result;
     } catch (err) {
       console.error('Error in fetchUserProfile:', err);
       return { role: null, status: null };
@@ -82,26 +92,46 @@ export function useAuth(): UseAuthReturn {
   useEffect(() => {
     let mounted = true;
 
+    // Timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        console.log('useAuth: Timeout reached, forcing isLoading to false');
+        setIsLoading(false);
+      }
+    }, 5000);
+
     // Initial session check
+    console.log('useAuth: Starting session check');
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
+      console.log('useAuth: Session received:', session ? 'logged in' : 'not logged in');
 
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const { role, status } = await fetchUserProfile(session.user.id);
-        if (mounted) {
-          setUserRole(role);
-          setUserStatus(status);
-        }
+        try {
+          const { role, status } = await fetchUserProfile(session.user.id);
+          if (mounted) {
+            setUserRole(role);
+            setUserStatus(status);
+          }
 
-        const adminStatus = await checkAdminRole(session.user.id);
-        if (mounted) {
-          setIsAdmin(adminStatus);
+          const adminStatus = await checkAdminRole(session.user.id);
+          if (mounted) {
+            setIsAdmin(adminStatus);
+          }
+        } catch (err) {
+          console.error('useAuth: Error fetching profile/admin status:', err);
         }
       }
 
+      if (mounted) {
+        console.log('useAuth: Setting isLoading to false');
+        setIsLoading(false);
+      }
+    }).catch((err) => {
+      console.error('useAuth: Session check failed:', err);
       if (mounted) {
         setIsLoading(false);
       }
@@ -112,20 +142,25 @@ export function useAuth(): UseAuthReturn {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+      console.log('useAuth: Auth state changed:', event);
 
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const { role, status } = await fetchUserProfile(session.user.id);
-        if (mounted) {
-          setUserRole(role);
-          setUserStatus(status);
-        }
+        try {
+          const { role, status } = await fetchUserProfile(session.user.id);
+          if (mounted) {
+            setUserRole(role);
+            setUserStatus(status);
+          }
 
-        const adminStatus = await checkAdminRole(session.user.id);
-        if (mounted) {
-          setIsAdmin(adminStatus);
+          const adminStatus = await checkAdminRole(session.user.id);
+          if (mounted) {
+            setIsAdmin(adminStatus);
+          }
+        } catch (err) {
+          console.error('useAuth: Error in auth state change handler:', err);
         }
       } else {
         setIsAdmin(false);
@@ -140,6 +175,7 @@ export function useAuth(): UseAuthReturn {
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, [fetchUserProfile, checkAdminRole]);

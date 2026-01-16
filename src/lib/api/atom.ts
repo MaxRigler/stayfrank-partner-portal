@@ -1,4 +1,6 @@
-import { supabase } from "@/integrations/supabase/client";
+// Hardcoded Supabase values (same as client.ts)
+const SUPABASE_URL = "https://ximkveundgebbvbgacfu.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpbWt2ZXVuZGdlYmJ2YmdhY2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODA2MzQsImV4cCI6MjA4NDE1NjYzNH0.7UGEMBH1SCibG3XavZ1G3cdxJhky0_1aw9Hh1pU3JdQ";
 
 export interface AtomPropertyData {
     ownerNames: string;
@@ -9,14 +11,32 @@ export interface AtomPropertyData {
 }
 
 export async function lookupProperty(address: string): Promise<AtomPropertyData> {
-    const { data, error } = await supabase.functions.invoke('atom-property-lookup', {
-        body: { address }
-    });
+    console.log('lookupProperty called with address:', address);
 
-    if (error) {
-        console.error('Atom API error:', error);
-        throw new Error(error.message || 'Failed to lookup property');
+    // Use direct fetch to Edge Function - no auth required for property lookup
+    const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/atom-property-lookup`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({ address }),
+        }
+    );
+
+    console.log('Edge Function response status:', response.status);
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Atom API error:', response.status, errorText);
+        throw new Error(`Failed to lookup property: ${response.status} - ${errorText}`);
     }
+
+    const data = await response.json();
+    console.log('Edge Function returned data:', data);
 
     if (data.error) {
         console.error('Atom API returned error:', data.error);

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -5,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WizardProvider } from "./contexts/WizardContext";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import MySubmissions from "./pages/MySubmissions";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -45,11 +47,54 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Admin Route component
+// Admin Route component - temporarily bypassed for testing
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, isLoading } = useAuth();
+  const [checking, setChecking] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    // Directly check session and admin role without using useAuth
+    const checkAccess = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('AdminRoute: Session check:', session ? 'logged in' : 'not logged in');
+
+        if (!session) {
+          setChecking(false);
+          return;
+        }
+
+        // Check admin role directly
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+
+        console.log('AdminRoute: Admin role check:', { roleData, roleError });
+
+        if (roleData && !roleError) {
+          setHasAccess(true);
+        }
+      } catch (err) {
+        console.error('AdminRoute: Error checking access:', err);
+      }
+      setChecking(false);
+    };
+
+    // Add timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.log('AdminRoute: Timeout, forcing check complete');
+      setChecking(false);
+    }, 5000);
+
+    checkAccess();
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
@@ -57,7 +102,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!hasAccess) {
     return <Navigate to="/" replace />;
   }
 

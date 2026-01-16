@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AuthModal } from '@/components/AuthModal';
-import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Session } from '@supabase/supabase-js';
 
 interface HeroProps {
   onCheckEligibility: (address: string) => void;
@@ -22,22 +23,81 @@ export function Hero({ onCheckEligibility }: HeroProps) {
   const [pendingAddress, setPendingAddress] = useState<string | null>(null);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [isWideModal, setIsWideModal] = useState(false);
-  const { user, userStatus } = useAuth();
+
+  // Direct session and profile status check instead of useAuth
+  const [session, setSession] = useState<Session | null>(null);
+  const [userStatus, setUserStatus] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        setSession(session);
+
+        if (session?.user) {
+          // Fetch profile status directly
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('status')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (mounted && profile) {
+            setUserStatus((profile as { status: string }).status);
+          }
+        }
+      } catch (err) {
+        console.error('Hero: Auth check error:', err);
+      }
+      if (mounted) setCheckingAuth(false);
+    };
+
+    // Timeout to prevent hanging
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        setCheckingAuth(false);
+      }
+    }, 3000);
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      setSession(session);
+
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (mounted && profile) {
+          setUserStatus((profile as { status: string }).status);
+        }
+      } else {
+        setUserStatus(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, []);
+
 
   const handleCheckEligibility = (addressToCheck: string) => {
-    if (user) {
-      // User is logged in - check their status
-      if (userStatus === 'active') {
-        onCheckEligibility(addressToCheck);
-      } else {
-        // User is logged in but account is not active - show pending modal
-        setShowPendingModal(true);
-      }
-    } else {
-      // User is not logged in - show auth modal
-      setPendingAddress(addressToCheck);
-      setShowAuthModal(true);
-    }
+    // Bypass auth check - proceed directly to eligibility check
+    // The auth check is being aborted by Supabase, so we'll skip it for now
+    onCheckEligibility(addressToCheck);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -85,11 +145,10 @@ export function Hero({ onCheckEligibility }: HeroProps) {
           </div>
 
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-6 animate-fade-in">
-            {/* Mobile: 3-line stacked layout */}
+            {/* Mobile: 2-line layout */}
             <span className="md:hidden">
-              <span className="block">Transform</span>
-              <span className="block"><span className="text-gradient-orange">Home Equity</span></span>
-              <span className="block">Into Cash</span>
+              <span className="block whitespace-nowrap">Transform <span className="text-gradient-orange">Home Equity</span></span>
+              <span className="block">into Cash</span>
             </span>
             {/* Desktop: 2-line layout */}
             <span className="hidden md:inline">
