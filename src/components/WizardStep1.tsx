@@ -465,16 +465,16 @@ export function WizardStep1({
         {/* Address & Owner Card - Top */}
         <div className="p-4 bg-secondary rounded-xl border border-border mb-6">
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-              <div>
+            <div className="flex items-start gap-4">
+              <MapPin className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
+              <div className="text-left">
                 <p className="text-xs text-foreground/70 font-medium">Property Address</p>
                 <p className="font-medium text-muted-foreground text-sm">{address}</p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <User className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-              <div>
+            <div className="flex items-start gap-4">
+              <User className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
+              <div className="text-left">
                 <p className="text-xs text-foreground/70 font-medium">Property Owner</p>
                 <p className="font-medium text-muted-foreground">{propertyOwner}</p>
               </div>
@@ -545,9 +545,9 @@ export function WizardStep1({
         <div className="p-4 bg-secondary rounded-xl border border-border mb-4">
           <div className="grid grid-cols-3 gap-4">
             {/* State */}
-            <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+            <div className="flex items-start gap-4">
+              <MapPin className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
+              <div className="flex-1 text-left">
                 <p className="text-xs text-foreground/70 font-medium mb-1">State</p>
                 <Select value={state} onValueChange={setState}>
                   <SelectTrigger className={`bg-background text-sm h-10 ${state ? isStateEligible(state) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
@@ -565,9 +565,9 @@ export function WizardStep1({
             </div>
 
             {/* Property Type */}
-            <div className="flex items-start gap-3">
-              <Building className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+            <div className="flex items-start gap-4">
+              <Building className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
+              <div className="flex-1 text-left">
                 <p className="text-xs text-foreground/70 font-medium mb-1">Property Type</p>
                 <Select value={propertyType} onValueChange={setPropertyType}>
                   <SelectTrigger className={`bg-background text-sm h-10 ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
@@ -585,9 +585,9 @@ export function WizardStep1({
             </div>
 
             {/* Ownership Type */}
-            <div className="flex items-start gap-3">
-              <User className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+            <div className="flex items-start gap-4">
+              <User className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
+              <div className="flex-1 text-left">
                 <p className="text-xs text-foreground/70 font-medium mb-1">Ownership Type</p>
                 <Select value={ownershipType} onValueChange={setOwnershipType}>
                   <SelectTrigger className={`bg-background text-sm h-10 ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
@@ -614,14 +614,14 @@ export function WizardStep1({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-start gap-2">
               <MapPin className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-              <div>
+              <div className="text-left">
                 <p className="text-xs text-foreground/70 font-medium">Address</p>
                 <p className="font-medium text-muted-foreground text-xs leading-tight">{address}</p>
               </div>
             </div>
             <div className="flex items-start gap-2">
               <User className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-              <div>
+              <div className="text-left">
                 <p className="text-xs text-foreground/70 font-medium">Owner</p>
                 <p className="font-medium text-muted-foreground text-sm">{propertyOwner}</p>
               </div>
@@ -691,7 +691,7 @@ export function WizardStep1({
             {/* State */}
             <div className="flex items-start gap-1 w-[70px]">
               <MapPin className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 text-left">
                 <p className="text-xs text-foreground/70 font-medium">State</p>
                 <Select value={state} onValueChange={setState}>
                   <SelectTrigger className={`bg-background text-xs h-9 w-full ${state ? isStateEligible(state) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
@@ -711,7 +711,7 @@ export function WizardStep1({
             {/* Property Type */}
             <div className="flex items-start gap-1 flex-1">
               <Building className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 text-left">
                 <p className="text-xs text-foreground/70 font-medium">Property</p>
                 <Select value={propertyType} onValueChange={setPropertyType}>
                   <SelectTrigger className={`bg-background text-xs h-9 w-full ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
@@ -731,7 +731,7 @@ export function WizardStep1({
             {/* Ownership Type */}
             <div className="flex items-start gap-1 flex-1">
               <User className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 text-left">
                 <p className="text-xs text-foreground/70 font-medium">Ownership</p>
                 <Select value={ownershipType} onValueChange={setOwnershipType}>
                   <SelectTrigger className={`bg-background text-xs h-9 w-full ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
