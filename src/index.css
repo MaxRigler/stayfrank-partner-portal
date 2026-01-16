@@ -1,0 +1,282 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* StayFrank Brand Theme */
+    /* Orange: #E8A33C (38, 64%, 57% in HSL) */
+    /* Dark Purple: #2D1A3D (276, 40%, 17% in HSL) */
+    
+    --background: 270 15% 98%;
+    --foreground: 276 40% 17%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 276 40% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 276 40% 17%;
+
+    /* Dark Purple Primary */
+    --primary: 276 40% 17%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Light Purple Secondary */
+    --secondary: 270 20% 95%;
+    --secondary-foreground: 276 40% 17%;
+
+    --muted: 270 15% 96%;
+    --muted-foreground: 276 20% 45%;
+
+    /* Orange Accent */
+    --accent: 38 78% 57%;
+    --accent-foreground: 276 40% 17%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 270 15% 90%;
+    --input: 270 15% 90%;
+    --ring: 38 78% 57%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --purple-deep: 276 40% 17%;
+    --purple-medium: 276 35% 25%;
+    --purple-light: 270 20% 95%;
+    --orange: 38 78% 57%;
+    --orange-hover: 38 78% 50%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Gradients */
+    --gradient-purple: linear-gradient(135deg, hsl(276 40% 17%) 0%, hsl(276 35% 25%) 100%);
+    --gradient-orange: linear-gradient(135deg, hsl(38 78% 57%) 0%, hsl(30 80% 55%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(276 40% 17% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(276 40% 17% / 0.1), 0 2px 4px -2px hsl(276 40% 17% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(276 40% 17% / 0.1), 0 4px 6px -4px hsl(276 40% 17% / 0.1);
+    --shadow-orange: 0 4px 14px 0 hsl(38 78% 57% / 0.4);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 276 40% 17%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 270 15% 95%;
+    --sidebar-accent-foreground: 276 40% 17%;
+    --sidebar-border: 270 13% 91%;
+    --sidebar-ring: 38 78% 57%;
+  }
+
+  .dark {
+    --background: 276 40% 8%;
+    --foreground: 270 15% 98%;
+
+    --card: 276 40% 12%;
+    --card-foreground: 270 15% 98%;
+
+    --popover: 276 40% 12%;
+    --popover-foreground: 270 15% 98%;
+
+    --primary: 38 78% 57%;
+    --primary-foreground: 276 40% 17%;
+
+    --secondary: 276 30% 20%;
+    --secondary-foreground: 270 15% 98%;
+
+    --muted: 276 30% 18%;
+    --muted-foreground: 270 15% 65%;
+
+    --accent: 38 78% 57%;
+    --accent-foreground: 276 40% 17%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 270 15% 98%;
+
+    --border: 276 30% 20%;
+    --input: 276 30% 20%;
+    --ring: 38 78% 57%;
+
+    --sidebar-background: 276 40% 10%;
+    --sidebar-foreground: 270 15% 95%;
+    --sidebar-primary: 38 78% 57%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 276 30% 15%;
+    --sidebar-accent-foreground: 270 15% 95%;
+    --sidebar-border: 276 30% 15%;
+    --sidebar-ring: 38 78% 57%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+  }
+
+  html {
+    background-color: hsl(var(--purple-deep));
+  }
+
+  body {
+    @apply bg-[hsl(var(--purple-deep))] text-foreground antialiased;
+    font-family: 'Nunito', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient-orange {
+    @apply bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 20s ease-in-out infinite;
+  }
+
+  .animate-float-reverse {
+    animation: float-reverse 25s ease-in-out infinite;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 8s ease-in-out infinite;
+  }
+
+  .animate-float-glow {
+    animation: float-glow 20s ease-in-out infinite;
+  }
+
+  .animate-float-glow-reverse {
+    animation: float-glow-reverse 25s ease-in-out infinite;
+  }
+
+  .animate-breathe {
+    animation: breathe 3s ease-in-out infinite;
+    border-radius: calc(var(--radius) - 2px);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0) translateX(0); 
+  }
+  25% { 
+    transform: translateY(-20px) translateX(10px); 
+  }
+  50% { 
+    transform: translateY(-10px) translateX(-5px); 
+  }
+  75% { 
+    transform: translateY(-25px) translateX(5px); 
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% { 
+    transform: translateY(0) translateX(0); 
+  }
+  25% { 
+    transform: translateY(15px) translateX(-10px); 
+  }
+  50% { 
+    transform: translateY(5px) translateX(8px); 
+  }
+  75% { 
+    transform: translateY(20px) translateX(-5px); 
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    opacity: 0.1; 
+    transform: scale(1); 
+  }
+  50% { 
+    opacity: 0.15; 
+    transform: scale(1.05); 
+  }
+}
+
+@keyframes float-glow {
+  0%, 100% { 
+    transform: translateY(0) translateX(0);
+    opacity: 0.03;
+  }
+  25% { 
+    transform: translateY(-20px) translateX(10px);
+    opacity: 0.04;
+  }
+  50% { 
+    transform: translateY(-10px) translateX(-5px);
+    opacity: 0.05;
+  }
+  75% { 
+    transform: translateY(-25px) translateX(5px);
+    opacity: 0.04;
+  }
+}
+
+@keyframes float-glow-reverse {
+  0%, 100% { 
+    transform: translateY(0) translateX(0);
+    opacity: 0.02;
+  }
+  25% { 
+    transform: translateY(15px) translateX(-10px);
+    opacity: 0.03;
+  }
+  50% { 
+    transform: translateY(5px) translateX(8px);
+    opacity: 0.04;
+  }
+  75% { 
+    transform: translateY(20px) translateX(-5px);
+    opacity: 0.03;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 hsl(var(--accent) / 0.2);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 20px 4px hsl(var(--accent) / 0.35);
+    transform: scale(1.01);
+  }
+}
