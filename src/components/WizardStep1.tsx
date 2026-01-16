@@ -280,12 +280,13 @@ export function WizardStep1({
 
         setState(data.state);
         setPropertyType(data.propertyType);
-        const fetchedHomeValue = data.estimatedValue || 500000;
+        // Use API value only if it's reasonable (>= $50,000), otherwise default to $500,000
+        const fetchedHomeValue = (data.estimatedValue && data.estimatedValue >= 50000) ? data.estimatedValue : 500000;
         setHomeValue(fetchedHomeValue);
         setHomeValueInput(fetchedHomeValue.toString());
 
-        // Use estimated mortgage if available, otherwise default to 50%
-        if (data.estimatedMortgageBalance > 0) {
+        // Use estimated mortgage if available and reasonable (>= $1,000), otherwise default to 50% of home value
+        if (data.estimatedMortgageBalance && data.estimatedMortgageBalance >= 1000) {
           setMortgageBalance(data.estimatedMortgageBalance);
         } else {
           setMortgageBalance(Math.round(fetchedHomeValue * 0.5));

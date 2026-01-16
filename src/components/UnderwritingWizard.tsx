@@ -38,7 +38,7 @@ export function UnderwritingWizard({ address, onBack }: UnderwritingWizardProps)
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
