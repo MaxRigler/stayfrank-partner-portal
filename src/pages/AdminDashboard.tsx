@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, LogOut, ArrowLeft, Building2, Phone, Mail, Calendar, ChevronDown, ChevronRight, Users, Ban } from 'lucide-react';
+import { FundingReasonsManager } from '@/components/FundingReasonsManager';
+import { Check, X, LogOut, ArrowLeft, Building2, Phone, Mail, Calendar, ChevronDown, ChevronRight, Users, Ban, Settings } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -536,6 +537,10 @@ export default function AdminDashboard() {
                 <TabsTrigger value="denied">
                   Denied ({filterByStatus('denied').length})
                 </TabsTrigger>
+                <TabsTrigger value="settings" className="ml-auto">
+                  <Settings className="h-4 w-4 mr-1" />
+                  Settings
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="pending">
                 <UserTable users={filterByStatus('pending')} showActions />
@@ -545,6 +550,9 @@ export default function AdminDashboard() {
               </TabsContent>
               <TabsContent value="denied">
                 <UserTable users={filterByStatus('denied')} showActions />
+              </TabsContent>
+              <TabsContent value="settings">
+                <FundingReasonsManager />
               </TabsContent>
             </Tabs>
           </CardContent>

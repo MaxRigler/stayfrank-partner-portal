@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { User, Mail, Phone, CreditCard, DollarSign, Calendar, HelpCircle, MessageSquare, ChevronDown, Check, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useFundingReasons } from '@/hooks/useFundingReasons';
 
 interface WizardStep2Props {
     ownerNames: string[];
@@ -33,7 +34,8 @@ const CREDIT_SCORE_OPTIONS = [
     { value: 'unsure', label: 'Unsure' },
 ];
 
-const MONEY_REASON_OPTIONS = [
+// Fallback if dynamic options fail to load
+const DEFAULT_MONEY_REASON_OPTIONS = [
     { value: 'paying_off_debt', label: 'Paying Off Debt' },
     { value: 'health_issues', label: 'Health Issues' },
     { value: 'unemployed', label: 'Unemployed' },
@@ -52,9 +54,11 @@ const MONEY_AMOUNT_OPTIONS = [
 function MultiSelectReasons({
     selectedReasons,
     onToggleReason,
+    options,
 }: {
     selectedReasons: string[];
     onToggleReason: (value: string) => void;
+    options: { value: string; label: string }[];
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -75,7 +79,7 @@ function MultiSelectReasons({
             return 'Select reasons (multiple allowed)';
         }
         if (selectedReasons.length === 1) {
-            const option = MONEY_REASON_OPTIONS.find(o => o.value === selectedReasons[0]);
+            const option = options.find(o => o.value === selectedReasons[0]);
             return option?.label || selectedReasons[0];
         }
         return `${selectedReasons.length} reasons selected`;
@@ -100,7 +104,7 @@ function MultiSelectReasons({
                         Select all that apply:
                     </p>
                     <div className="space-y-1">
-                        {MONEY_REASON_OPTIONS.map((option) => {
+                        {options.map((option) => {
                             const isSelected = selectedReasons.includes(option.value);
                             return (
                                 <div
@@ -142,6 +146,14 @@ function MultiSelectReasons({
 export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props) {
     // Initialize state based on number of owners
     const ownerCount = ownerNames.length || 1;
+
+    // Fetch dynamic funding reasons from Supabase
+    const { reasons: fundingReasons, loading: reasonsLoading } = useFundingReasons();
+
+    // Convert to options format, fallback to defaults if empty
+    const moneyReasonOptions = fundingReasons.length > 0
+        ? fundingReasons.map(r => ({ value: r.value, label: r.label }))
+        : DEFAULT_MONEY_REASON_OPTIONS;
 
     const [names, setNames] = useState<string[]>(
         ownerNames.length > 0 ? [...ownerNames] : ['']
@@ -354,6 +366,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                     <MultiSelectReasons
                         selectedReasons={moneyReasons}
                         onToggleReason={toggleReason}
+                        options={moneyReasonOptions}
                     />
                 </div>
 

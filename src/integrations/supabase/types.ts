@@ -56,6 +56,35 @@ export type Database = {
           updated_at?: string
         }
       }
+      funding_reasons: {
+        Row: {
+          id: string
+          value: string
+          label: string
+          display_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          value: string
+          label: string
+          display_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          value?: string
+          label?: string
+          display_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       submissions: {
         Row: {
           id: string
