@@ -55,6 +55,14 @@ CREATE TABLE submissions (
   property_type TEXT,
   state TEXT,
   
+  -- Personal Details (from Step 2)
+  owner_emails TEXT[],
+  owner_phones TEXT[],
+  owner_credit_scores TEXT[],
+  mortgage_current BOOLEAN,
+  money_reason TEXT,
+  money_amount TEXT,
+  
   -- Sale-Leaseback Qualification
   sl_eligible BOOLEAN DEFAULT false,
   sl_offer_amount NUMERIC,

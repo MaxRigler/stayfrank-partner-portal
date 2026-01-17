@@ -66,6 +66,14 @@ export type Database = {
           owner_names: string[] | null
           property_type: string | null
           state: string | null
+          // Personal Details
+          owner_emails: string[] | null
+          owner_phones: string[] | null
+          owner_credit_scores: string[] | null
+          mortgage_current: boolean | null
+          money_reason: string | null
+          money_amount: string | null
+          // Eligibility
           sl_eligible: boolean
           sl_offer_amount: number | null
           sl_ineligibility_reasons: string[] | null
@@ -90,6 +98,14 @@ export type Database = {
           owner_names?: string[] | null
           property_type?: string | null
           state?: string | null
+          // Personal Details
+          owner_emails?: string[] | null
+          owner_phones?: string[] | null
+          owner_credit_scores?: string[] | null
+          mortgage_current?: boolean | null
+          money_reason?: string | null
+          money_amount?: string | null
+          // Eligibility
           sl_eligible?: boolean
           sl_offer_amount?: number | null
           sl_ineligibility_reasons?: string[] | null
@@ -114,6 +130,14 @@ export type Database = {
           owner_names?: string[] | null
           property_type?: string | null
           state?: string | null
+          // Personal Details
+          owner_emails?: string[] | null
+          owner_phones?: string[] | null
+          owner_credit_scores?: string[] | null
+          mortgage_current?: boolean | null
+          money_reason?: string | null
+          money_amount?: string | null
+          // Eligibility
           sl_eligible?: boolean
           sl_offer_amount?: number | null
           sl_ineligibility_reasons?: string[] | null

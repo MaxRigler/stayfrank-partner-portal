@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { triggerConfetti } from '@/components/ui/confetti';
 import { supabase } from '@/integrations/supabase/client';
+import { PersonalDetailsData } from './WizardStep2';
 
 interface DualOfferDisplayProps {
   address: string;
@@ -18,6 +19,7 @@ interface DualOfferDisplayProps {
   ownershipType: string;
   currentCLTV: number;
   ownerNames?: string[];
+  personalDetails?: PersonalDetailsData;
   onBack: () => void;
   onReset: () => void;
 }
@@ -50,6 +52,7 @@ export function DualOfferDisplay({
   ownershipType,
   currentCLTV,
   ownerNames,
+  personalDetails,
   onBack,
   onReset
 }: DualOfferDisplayProps) {
@@ -95,6 +98,13 @@ export function DualOfferDisplay({
           hei_eligible: heiResult.isEligible,
           hei_max_investment: heiResult.isEligible ? heiResult.maxInvestment : null,
           hei_ineligibility_reasons: heiResult.ineligibilityReasons,
+          // Personal Details
+          owner_emails: personalDetails?.ownerEmails || [],
+          owner_phones: personalDetails?.ownerPhones || [],
+          owner_credit_scores: personalDetails?.ownerCreditScores || [],
+          mortgage_current: personalDetails?.mortgageCurrent ?? null,
+          money_reason: personalDetails?.moneyReason || null,
+          money_amount: personalDetails?.moneyAmount || null,
         })
         .select('id')
         .single();
@@ -190,8 +200,8 @@ export function DualOfferDisplay({
       {/* Dual Offer Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sale-Leaseback Offer */}
-        <div className={`p-6 rounded-xl border ${slResult.isEligible 
-          ? 'bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30' 
+        <div className={`p-6 rounded-xl border ${slResult.isEligible
+          ? 'bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30'
           : 'bg-destructive/10 border-destructive/30'}`}>
           <div className="flex items-center gap-2 mb-4">
             {slResult.isEligible ? (
@@ -244,8 +254,8 @@ export function DualOfferDisplay({
         </div>
 
         {/* HEI Offer */}
-        <div className={`p-6 rounded-xl border ${heiResult.isEligible 
-          ? 'bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30' 
+        <div className={`p-6 rounded-xl border ${heiResult.isEligible
+          ? 'bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30'
           : 'bg-destructive/10 border-destructive/30'}`}>
           <div className="flex items-center gap-2 mb-4">
             {heiResult.isEligible ? (
