@@ -47,24 +47,36 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Admin Route component - temporarily bypassed for testing
+// Admin Route component - uses cached admin status to avoid race conditions
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
-    // Directly check session and admin role without using useAuth
+    let mounted = true;
+
     const checkAccess = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         console.log('AdminRoute: Session check:', session ? 'logged in' : 'not logged in');
 
         if (!session) {
-          setChecking(false);
+          if (mounted) setChecking(false);
           return;
         }
 
-        // Check admin role directly
+        // Check cached admin status first (set by UserMenu)
+        const cachedAdminStatus = localStorage.getItem(`admin_status_${session.user.id}`);
+        if (cachedAdminStatus === 'true') {
+          console.log('AdminRoute: Using cached admin status (true)');
+          if (mounted) {
+            setHasAccess(true);
+            setChecking(false);
+          }
+          return;
+        }
+
+        // If not cached, check admin role from database
         const { data: roleData, error: roleError } = await supabase
           .from('user_roles')
           .select('role')
@@ -74,24 +86,66 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
         console.log('AdminRoute: Admin role check:', { roleData, roleError });
 
-        if (roleData && !roleError) {
-          setHasAccess(true);
+        if (mounted) {
+          if (roleData && !roleError) {
+            setHasAccess(true);
+            // Cache the result for future use
+            localStorage.setItem(`admin_status_${session.user.id}`, 'true');
+          }
+          setChecking(false);
         }
       } catch (err) {
         console.error('AdminRoute: Error checking access:', err);
+        // On error, check if we have a cached admin status
+        try {
+          const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
+          const storedData = localStorage.getItem(storageKey);
+          if (storedData) {
+            const parsed = JSON.parse(storedData);
+            if (parsed?.user?.id) {
+              const cachedAdminStatus = localStorage.getItem(`admin_status_${parsed.user.id}`);
+              if (cachedAdminStatus === 'true' && mounted) {
+                console.log('AdminRoute: Falling back to cached admin status after error');
+                setHasAccess(true);
+              }
+            }
+          }
+        } catch {
+          // Ignore localStorage errors
+        }
+        if (mounted) setChecking(false);
       }
-      setChecking(false);
     };
 
     // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
       console.log('AdminRoute: Timeout, forcing check complete');
-      setChecking(false);
+      // Try to use cached status on timeout
+      try {
+        const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
+        const storedData = localStorage.getItem(storageKey);
+        if (storedData) {
+          const parsed = JSON.parse(storedData);
+          if (parsed?.user?.id) {
+            const cachedAdminStatus = localStorage.getItem(`admin_status_${parsed.user.id}`);
+            if (cachedAdminStatus === 'true' && mounted) {
+              console.log('AdminRoute: Using cached admin status on timeout');
+              setHasAccess(true);
+            }
+          }
+        }
+      } catch {
+        // Ignore localStorage errors
+      }
+      if (mounted) setChecking(false);
     }, 5000);
 
     checkAccess();
 
-    return () => clearTimeout(timeout);
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
   }, []);
 
   if (checking) {

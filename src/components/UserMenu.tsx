@@ -221,7 +221,11 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
         if (profile?.status === 'pending') {
             setShowPendingModal(true);
         } else {
-            navigate(path);
+            // Use setTimeout to ensure navigation happens after popover closes
+            // This prevents React re-renders from interfering with navigation
+            setTimeout(() => {
+                navigate(path);
+            }, 0);
         }
     };
 

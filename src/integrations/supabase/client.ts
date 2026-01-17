@@ -14,4 +14,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
         autoRefreshToken: true,
         detectSessionInUrl: true,
     },
+    global: {
+        fetch: (url, options) => {
+            // Remove abort signal to prevent React StrictMode from aborting requests
+            const { signal, ...restOptions } = options || {};
+            return fetch(url, restOptions);
+        },
+    },
 });

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { UserMenu } from '@/components/UserMenu';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,29 +43,80 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let mounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+
     const fetchProfiles = async () => {
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'manager')
-          .order('created_at', { ascending: false });
+        console.log('AdminDashboard: Fetching profiles via REST API...');
 
-        if (error) throw error;
-        setProfiles(data || []);
-      } catch (error) {
-        console.error('Error fetching profiles:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load user profiles',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
+        // Get the auth token from localStorage
+        const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
+        const storedData = localStorage.getItem(storageKey);
+        let accessToken = '';
+
+        if (storedData) {
+          try {
+            const parsed = JSON.parse(storedData);
+            accessToken = parsed?.access_token || '';
+          } catch {
+            console.warn('AdminDashboard: Could not parse auth token');
+          }
+        }
+
+        // Use direct REST API call to bypass Supabase client AbortError issue
+        const response = await fetch(
+          'https://ximkveundgebbvbgacfu.supabase.co/rest/v1/profiles?select=*&order=created_at.desc',
+          {
+            method: 'GET',
+            headers: {
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpbWt2ZXVuZGdlYmJ2YmdhY2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODA2MzQsImV4cCI6MjA4NDE1NjYzNH0.7UGEMBH1SCibG3XavZ1G3cdxJhky0_1aw9Hh1pU3JdQ',
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('AdminDashboard: REST API error:', response.status, errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('AdminDashboard: REST API fetch successful:', data?.length || 0, 'profiles found', data);
+
+        if (mounted) {
+          setProfiles(data || []);
+          setLoading(false);
+        }
+      } catch (error: any) {
+        console.error('AdminDashboard: Exception fetching profiles:', error);
+        // Retry on network errors
+        if (retryCount < maxRetries && (error?.message?.includes('fetch') || error?.message?.includes('network'))) {
+          retryCount++;
+          console.log(`AdminDashboard: Retrying after exception (${retryCount}/${maxRetries})...`);
+          setTimeout(fetchProfiles, 1000);
+          return;
+        }
+        if (mounted) {
+          toast({
+            title: 'Error',
+            description: 'Failed to load user profiles',
+            variant: 'destructive',
+          });
+          setLoading(false);
+        }
       }
     };
 
-    fetchProfiles();
+    // Delay initial fetch to allow auth to be ready
+    setTimeout(fetchProfiles, 500);
+
+    return () => {
+      mounted = false;
+    };
   }, [toast]);
 
   const fetchOfficersForManager = async (managerId: string) => {
@@ -396,14 +448,14 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="fixed inset-0 bg-background overflow-auto">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -418,10 +470,7 @@ export default function AdminDashboard() {
             </div>
             <span className="text-foreground font-semibold">Admin Dashboard</span>
           </div>
-          <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
+          <UserMenu variant="light" />
         </div>
       </header>
 
