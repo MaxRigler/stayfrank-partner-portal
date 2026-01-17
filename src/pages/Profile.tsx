@@ -429,7 +429,7 @@ export default function Profile() {
                                         <LinkIcon className="h-5 w-5" />
                                         Officer Invite Link
                                     </CardTitle>
-                                    <CardDescription>
+                                    <CardDescription className="text-left">
                                         Share this link with officers to invite them to your team. They'll automatically be added under your account.
                                     </CardDescription>
                                 </CardHeader>
@@ -452,7 +452,7 @@ export default function Profile() {
                                         <Users className="h-5 w-5" />
                                         Your Officers
                                     </CardTitle>
-                                    <CardDescription>
+                                    <CardDescription className="text-left">
                                         {officers.length === 0
                                             ? 'No officers yet. Share your invite link to get started.'
                                             : `${officers.length} officer${officers.length === 1 ? '' : 's'} on your team`
@@ -461,8 +461,8 @@ export default function Profile() {
                                 </CardHeader>
                                 <CardContent>
                                     {officers.length === 0 ? (
-                                        <div className="text-center py-12 text-muted-foreground">
-                                            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                        <div className="text-left py-12 text-muted-foreground">
+                                            <Users className="h-12 w-12 mb-4 opacity-50" />
                                             <p>No officers have joined yet</p>
                                             <p className="text-sm mt-1">Share your invite link to add team members</p>
                                         </div>
