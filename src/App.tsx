@@ -20,30 +20,32 @@ import "./App.css";
 
 const queryClient = new QueryClient();
 
-// Protected Route component
+// Protected Route component - uses synchronous localStorage check for INSTANT access
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, userStatus, isLoading } = useAuth();
+  // Check localStorage synchronously for instant access - no waiting for async hooks
+  const getStoredSession = () => {
+    try {
+      const storedData = localStorage.getItem('sb-ximkveundgebbvbgacfu-auth-token');
+      if (storedData) {
+        const parsed = JSON.parse(storedData);
+        const expiresAt = new Date((parsed?.expires_at || 0) * 1000);
+        if (expiresAt > new Date() && parsed?.user?.id) {
+          return { userId: parsed.user.id, isValid: true };
+        }
+      }
+    } catch { }
+    return { userId: null, isValid: false };
+  };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
-      </div>
-    );
-  }
+  const session = getStoredSession();
 
-  if (!user) {
+  // If no valid session in localStorage, redirect immediately
+  if (!session.isValid) {
     return <Navigate to="/" replace />;
   }
 
-  if (userStatus === 'pending') {
-    return <Navigate to="/pending" replace />;
-  }
-
-  if (userStatus === 'denied') {
-    return <Navigate to="/" replace />;
-  }
-
+  // User has a valid session token - render children immediately
+  // The Profile page itself will handle data loading and any status checks
   return <>{children}</>;
 }
 

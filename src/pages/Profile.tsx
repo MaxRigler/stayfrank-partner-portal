@@ -24,15 +24,43 @@ export default function Profile() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [initialLoading, setInitialLoading] = useState(true);
 
+    // Supabase config for raw fetch - bypass AbortController issues
+    const SUPABASE_URL = "https://ximkveundgebbvbgacfu.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpbWt2ZXVuZGdlYmJ2YmdhY2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODA2MzQsImV4cCI6MjA4NDE1NjYzNH0.7UGEMBH1SCibG3XavZ1G3cdxJhky0_1aw9Hh1pU3JdQ";
+
+    // Get stored session data synchronously for instant load
+    const getStoredSessionData = () => {
+        try {
+            const storedData = localStorage.getItem('sb-ximkveundgebbvbgacfu-auth-token');
+            if (storedData) {
+                const parsed = JSON.parse(storedData);
+                const expiresAt = new Date((parsed?.expires_at || 0) * 1000);
+                if (expiresAt > new Date()) {
+                    return {
+                        userId: parsed?.user?.id || null,
+                        email: parsed?.user?.email || '',
+                        accessToken: parsed?.access_token || SUPABASE_ANON_KEY,
+                        metadata: parsed?.user?.user_metadata || {},
+                    };
+                }
+            }
+        } catch { }
+        return null;
+    };
+
+    // Get initial data from localStorage synchronously for INSTANT render
+    const storedSession = getStoredSessionData();
+    const initialMetadata = storedSession?.metadata || {};
+
+    // Initialize form data from localStorage immediately - NO loading spinner!
     const [formData, setFormData] = useState({
-        full_name: '',
-        company_name: '',
-        cell_phone: '',
-        email: '',
-        role: '',
-        status: '',
+        full_name: initialMetadata.full_name || '',
+        company_name: initialMetadata.company_name || '',
+        cell_phone: initialMetadata.cell_phone || '',
+        email: storedSession?.email || '',
+        role: 'manager', // Default - will be updated from API
+        status: 'pending', // Default - will be updated from API
     });
 
     // Team Management state (for managers)
@@ -40,57 +68,78 @@ export default function Profile() {
     const [officers, setOfficers] = useState<Officer[]>([]);
     const [updatingOfficer, setUpdatingOfficer] = useState<string | null>(null);
 
+    // Track if we've fetched from database to show more accurate role/status
+    const [hasFetchedFromDb, setHasFetchedFromDb] = useState(false);
+
+    // Background fetch to update data from database (runs after initial render)
     useEffect(() => {
-        const fetchProfile = async () => {
-            if (!user) return;
+        let mounted = true;
+
+        const fetchProfileFromDatabase = async () => {
+            const sessionData = getStoredSessionData();
+            if (!sessionData?.userId) return;
 
             try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('full_name, company_name, cell_phone, email, role, status, invite_token')
-                    .eq('id', user.id)
-                    .single();
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${sessionData.userId}&select=full_name,company_name,cell_phone,email,role,status,invite_token`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${sessionData.accessToken}`,
+                            'Content-Type': 'application/json',
+                        }
+                    }
+                );
 
-                if (error) throw error;
+                if (response.ok && mounted) {
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        const profile = data[0];
+                        setFormData(prev => ({
+                            full_name: profile.full_name || prev.full_name,
+                            company_name: profile.company_name || prev.company_name,
+                            cell_phone: profile.cell_phone || prev.cell_phone,
+                            email: profile.email || prev.email,
+                            role: profile.role || prev.role,
+                            status: profile.status || prev.status,
+                        }));
+                        setInviteToken(profile.invite_token);
+                        setHasFetchedFromDb(true);
 
-                if (data) {
-                    setFormData({
-                        full_name: data.full_name || '',
-                        company_name: data.company_name || '',
-                        cell_phone: data.cell_phone || '',
-                        email: data.email || user.email || '',
-                        role: data.role || 'officer',
-                        status: data.status || 'pending',
-                    });
-                    setInviteToken(data.invite_token);
+                        // Fetch officers if user is a manager
+                        if (profile.role === 'manager') {
+                            const officerResponse = await fetch(
+                                `${SUPABASE_URL}/rest/v1/profiles?parent_id=eq.${sessionData.userId}&role=eq.officer&select=id,email,full_name,status,created_at&order=created_at.desc`,
+                                {
+                                    method: 'GET',
+                                    headers: {
+                                        'apikey': SUPABASE_ANON_KEY,
+                                        'Authorization': `Bearer ${sessionData.accessToken}`,
+                                        'Content-Type': 'application/json',
+                                    }
+                                }
+                            );
 
-                    // Fetch officers if user is a manager
-                    if (data.role === 'manager') {
-                        const { data: officerData, error: officerError } = await supabase
-                            .from('profiles')
-                            .select('id, email, full_name, status, created_at')
-                            .eq('parent_id', user.id)
-                            .eq('role', 'officer')
-                            .order('created_at', { ascending: false });
-
-                        if (officerError) throw officerError;
-                        setOfficers(officerData || []);
+                            if (officerResponse.ok && mounted) {
+                                const officerData = await officerResponse.json();
+                                setOfficers(officerData || []);
+                            }
+                        }
                     }
                 }
             } catch (error) {
-                console.error('Error fetching profile:', error);
-                toast({
-                    title: 'Error',
-                    description: 'Failed to load profile data',
-                    variant: 'destructive',
-                });
-            } finally {
-                setInitialLoading(false);
+                console.warn('Background profile fetch failed:', error);
             }
         };
 
-        fetchProfile();
-    }, [user]);
+        // Start background fetch immediately - page is already rendered with localStorage data
+        fetchProfileFromDatabase();
+
+        return () => {
+            mounted = false;
+        };
+    }, []); // Empty dependency - runs once on mount
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData(prev => ({
@@ -134,10 +183,15 @@ export default function Profile() {
         }
     };
 
-    if (initialLoading) {
+    // No loading spinner needed - we load data from localStorage instantly
+    // If user is not logged in, redirect to home
+    if (!storedSession?.userId) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="fixed inset-0 z-10 flex items-center justify-center bg-white">
+                <div className="text-center">
+                    <p className="text-muted-foreground">Please log in to view your profile.</p>
+                    <Button className="mt-4" onClick={() => navigate('/')}>Go Home</Button>
+                </div>
             </div>
         );
     }
@@ -211,14 +265,22 @@ export default function Profile() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="fixed inset-0 z-10 bg-white overflow-auto">
             {/* Header */}
-            <header className="border-b border-border bg-card px-4 py-3">
+            <header className="border-b border-border bg-white px-4 py-3">
                 <div className="flex items-center justify-between max-w-2xl mx-auto">
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <UserMenu showArrow />
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+                            <ArrowLeft className="h-5 w-5" />
+                        </Button>
+                        {/* StayFrank Logo */}
+                        <div className="text-xl font-bold">
+                            <span className="text-[hsl(38,78%,57%)]">Stay</span>
+                            <span className="text-[hsl(var(--purple-deep))]">Frank</span>
+                            <span className="text-[hsl(38,78%,57%)]">.</span>
+                        </div>
+                    </div>
+                    <UserMenu variant="light" />
                 </div>
             </header>
 
