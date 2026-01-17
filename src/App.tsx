@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WizardProvider } from "./contexts/WizardContext";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import MySubmissions from "./pages/MySubmissions";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -49,120 +47,44 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Admin Route component - uses cached admin status to avoid race conditions
+// Admin Route component - uses SYNCHRONOUS localStorage check for INSTANT access
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const [checking, setChecking] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const checkAccess = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('AdminRoute: Session check:', session ? 'logged in' : 'not logged in');
-
-        if (!session) {
-          if (mounted) setChecking(false);
-          return;
+  // Check localStorage synchronously for instant access - no waiting for async hooks
+  const getStoredSession = () => {
+    try {
+      const storedData = localStorage.getItem('sb-ximkveundgebbvbgacfu-auth-token');
+      if (storedData) {
+        const parsed = JSON.parse(storedData);
+        const expiresAt = new Date((parsed?.expires_at || 0) * 1000);
+        if (expiresAt > new Date() && parsed?.user?.id) {
+          return { userId: parsed.user.id, isValid: true };
         }
-
-        // Check cached admin status first (set by UserMenu)
-        const cachedAdminStatus = localStorage.getItem(`admin_status_${session.user.id}`);
-        if (cachedAdminStatus === 'true') {
-          console.log('AdminRoute: Using cached admin status (true)');
-          if (mounted) {
-            setHasAccess(true);
-            setChecking(false);
-          }
-          return;
-        }
-
-        // If not cached, check admin role from database
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-
-        console.log('AdminRoute: Admin role check:', { roleData, roleError });
-
-        if (mounted) {
-          if (roleData && !roleError) {
-            setHasAccess(true);
-            // Cache the result for future use
-            localStorage.setItem(`admin_status_${session.user.id}`, 'true');
-          }
-          setChecking(false);
-        }
-      } catch (err) {
-        console.error('AdminRoute: Error checking access:', err);
-        // On error, check if we have a cached admin status
-        try {
-          const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
-          const storedData = localStorage.getItem(storageKey);
-          if (storedData) {
-            const parsed = JSON.parse(storedData);
-            if (parsed?.user?.id) {
-              const cachedAdminStatus = localStorage.getItem(`admin_status_${parsed.user.id}`);
-              if (cachedAdminStatus === 'true' && mounted) {
-                console.log('AdminRoute: Falling back to cached admin status after error');
-                setHasAccess(true);
-              }
-            }
-          }
-        } catch {
-          // Ignore localStorage errors
-        }
-        if (mounted) setChecking(false);
       }
-    };
+    } catch { }
+    return { userId: null, isValid: false };
+  };
 
-    // Add timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      console.log('AdminRoute: Timeout, forcing check complete');
-      // Try to use cached status on timeout
-      try {
-        const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
-        const storedData = localStorage.getItem(storageKey);
-        if (storedData) {
-          const parsed = JSON.parse(storedData);
-          if (parsed?.user?.id) {
-            const cachedAdminStatus = localStorage.getItem(`admin_status_${parsed.user.id}`);
-            if (cachedAdminStatus === 'true' && mounted) {
-              console.log('AdminRoute: Using cached admin status on timeout');
-              setHasAccess(true);
-            }
-          }
-        }
-      } catch {
-        // Ignore localStorage errors
-      }
-      if (mounted) setChecking(false);
-    }, 5000);
+  const session = getStoredSession();
 
-    checkAccess();
-
-    return () => {
-      mounted = false;
-      clearTimeout(timeout);
-    };
-  }, []);
-
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
-      </div>
-    );
-  }
-
-  if (!hasAccess) {
+  // If no valid session in localStorage, redirect immediately
+  if (!session.isValid) {
     return <Navigate to="/" replace />;
   }
 
-  return <>{children}</>;
+  // Check cached admin status synchronously
+  const cachedAdminStatus = localStorage.getItem(`admin_status_${session.userId}`);
+
+  // If we have a cached admin status, render immediately
+  if (cachedAdminStatus === 'true') {
+    console.log('AdminRoute: Using cached admin status for instant access');
+    return <>{children}</>;
+  }
+
+  // If no cached admin status, we need to verify - but this should be rare
+  // since admin status is cached when AdminDashboard loads or UserMenu checks
+  // For safety, redirect non-cached users (they can try again after UserMenu caches their status)
+  console.log('AdminRoute: No cached admin status, redirecting. User should access via UserMenu first.');
+  return <Navigate to="/" replace />;
 }
 
 // Manager Route component
