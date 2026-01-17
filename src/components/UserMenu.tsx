@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -37,6 +37,78 @@ function setCachedAdminStatus(userId: string, isAdmin: boolean): void {
     } catch {
         // Ignore localStorage errors
     }
+}
+
+// Module-level tracking for pending admin checks - survives React Strict Mode remounts
+const pendingAdminChecks = new Map<string, Promise<boolean>>();
+
+// Supabase config for raw fetch - bypass the Supabase client's internal AbortController
+const SUPABASE_URL = "https://ximkveundgebbvbgacfu.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpbWt2ZXVuZGdlYmJ2YmdhY2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODA2MzQsImV4cCI6MjA4NDE1NjYzNH0.7UGEMBH1SCibG3XavZ1G3cdxJhky0_1aw9Hh1pU3JdQ";
+
+// Single function to check admin status that can be shared across component instances
+async function checkAdminRoleOnce(userId: string): Promise<boolean> {
+    // If there's already a pending check for this user, return that promise
+    const existingCheck = pendingAdminChecks.get(userId);
+    if (existingCheck) {
+        console.log('UserMenu: Reusing existing admin check for user:', userId);
+        return existingCheck;
+    }
+
+    // Create the check promise using raw fetch to bypass Supabase client's AbortController
+    const checkPromise = (async () => {
+        try {
+            console.log('UserMenu: Making fresh admin role API call (raw fetch) for user:', userId);
+
+            // Get access token for authenticated request
+            const storedData = localStorage.getItem('sb-ximkveundgebbvbgacfu-auth-token');
+            let accessToken = '';
+            if (storedData) {
+                try {
+                    const parsed = JSON.parse(storedData);
+                    accessToken = parsed?.access_token || '';
+                } catch { }
+            }
+
+            // Use raw fetch without any AbortController
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=role`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                console.warn('UserMenu: Admin role check HTTP error:', response.status);
+                return getCachedAdminStatus(userId);
+            }
+
+            const data = await response.json();
+            const isAdmin = Array.isArray(data) && data.length > 0;
+            console.log('UserMenu: Admin role API result (raw fetch):', isAdmin);
+            setCachedAdminStatus(userId, isAdmin);
+            return isAdmin;
+        } catch (err: any) {
+            console.warn('UserMenu: Admin role check exception:', err?.message || err);
+            // On exception, return cached status or false  
+            return getCachedAdminStatus(userId);
+        } finally {
+            // Clean up after a delay to allow for race conditions
+            setTimeout(() => {
+                pendingAdminChecks.delete(userId);
+            }, 1000);
+        }
+    })();
+
+    // Store the pending check
+    pendingAdminChecks.set(userId, checkPromise);
+    return checkPromise;
 }
 
 function getStoredUser(): StoredUserData | null {
@@ -136,95 +208,34 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
         };
     }, [user, storedUser]);
 
-    // Separate useEffect for admin role check - runs independently
-    // This is designed to be resilient to AbortError which happens frequently in dev mode
+    // Separate useEffect for admin role check - uses module-level deduplication
+    // This survives React Strict Mode remounts by sharing a single pending promise
     useEffect(() => {
         let mounted = true;
-        let retryCount = 0;
-        const maxRetries = 5; // Increased retries for more resilience
-        const retryDelays = [500, 1000, 2000, 3000, 4000]; // Exponential backoff
 
-        const checkAdminRole = async () => {
+        const checkAdmin = async () => {
             const currentUser = user || storedUser;
             if (!currentUser?.id) return;
 
-            // Check cached status first - if it's true, set state immediately
-            // This ensures the admin link shows even if API calls fail
+            // Set from cache immediately for instant UI display
             const cachedStatus = getCachedAdminStatus(currentUser.id);
             if (cachedStatus && mounted) {
-                console.log('UserMenu: Setting admin from cache before API check');
+                console.log('UserMenu: Setting admin from cache');
                 setIsAdmin(true);
             }
 
-            try {
-                console.log('UserMenu: Checking admin role for user:', currentUser.id);
-                const { data: roleData, error } = await supabase
-                    .from('user_roles')
-                    .select('role')
-                    .eq('user_id', currentUser.id)
-                    .eq('role', 'admin')
-                    .maybeSingle(); // Use maybeSingle to avoid error when no row found
-
-                if (error) {
-                    console.warn('UserMenu: Error checking admin role:', error.message);
-                    const isAbortError = error.message.includes('abort') || error.message.includes('AbortError');
-
-                    // Retry on AbortError with exponential backoff
-                    if (retryCount < maxRetries && isAbortError) {
-                        const delay = retryDelays[retryCount] || 4000;
-                        retryCount++;
-                        console.log(`UserMenu: Retrying admin role check (${retryCount}/${maxRetries}) in ${delay}ms...`);
-                        setTimeout(checkAdminRole, delay);
-                        return;
-                    }
-
-                    // On final failure, trust the cached value if it exists
-                    // Don't reset isAdmin to false on errors
-                    if (cachedStatus && mounted) {
-                        console.log('UserMenu: Trusting cached admin status after API failures');
-                        setIsAdmin(true);
-                    }
-                    return;
-                }
-
-                // We got a successful response - update state and cache accordingly
-                if (roleData && mounted) {
-                    console.log('UserMenu: User has admin role (confirmed by API)');
-                    setIsAdmin(true);
-                    setCachedAdminStatus(currentUser.id, true);
-                } else if (mounted) {
-                    // Only set to false if we got a definitive "not admin" response from API
-                    console.log('UserMenu: User does not have admin role (confirmed by API)');
-                    setIsAdmin(false);
-                    setCachedAdminStatus(currentUser.id, false);
-                }
-            } catch (err: any) {
-                console.warn('UserMenu: Error checking admin role:', err?.message || err);
-                const isAbortError = err?.name === 'AbortError' || err?.message?.includes('abort');
-
-                // Retry on AbortError with exponential backoff
-                if (retryCount < maxRetries && isAbortError) {
-                    const delay = retryDelays[retryCount] || 4000;
-                    retryCount++;
-                    console.log(`UserMenu: Retrying admin role check after error (${retryCount}/${maxRetries}) in ${delay}ms...`);
-                    setTimeout(checkAdminRole, delay);
-                    return;
-                }
-
-                // On final failure, trust the cached value if it exists
-                if (cachedStatus && mounted) {
-                    console.log('UserMenu: Trusting cached admin status after catch errors');
-                    setIsAdmin(true);
-                }
+            // Use the module-level function for the API check
+            // This ensures only one API call is made even if the component remounts
+            const isAdminResult = await checkAdminRoleOnce(currentUser.id);
+            if (mounted) {
+                setIsAdmin(isAdminResult);
             }
         };
 
-        // Slightly delayed start to avoid React Strict Mode immediate remount issues
-        const timeoutId = setTimeout(checkAdminRole, 500);
+        checkAdmin();
 
         return () => {
             mounted = false;
-            clearTimeout(timeoutId);
         };
     }, [user, storedUser]);
 

@@ -54,6 +54,14 @@ const Index = () => {
   useEffect(() => {
     let mounted = true;
 
+    // Timeout to prevent infinite loading - if session check takes > 3 seconds, proceed
+    const loadingTimeout = setTimeout(() => {
+      if (mounted) {
+        console.log('Index: Session check timeout, proceeding with localStorage session');
+        setCheckingSession(false);
+      }
+    }, 3000);
+
     // If we already have a session from localStorage, verify it in the background
     // If no localStorage session, we already know user is logged out - no need to call Supabase
     console.log('Index: Initial session from localStorage:', initialSession ? 'found' : 'not found');
@@ -101,6 +109,7 @@ const Index = () => {
 
     return () => {
       mounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
