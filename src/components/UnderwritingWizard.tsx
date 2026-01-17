@@ -51,9 +51,18 @@ export function UnderwritingWizard({ address, onBack }: UnderwritingWizardProps)
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+    <div className="fixed inset-0 z-50 overflow-y-auto font-sans text-foreground">
+      {/* Background Image Layer */}
+      <div
+        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat pointer-events-none"
+        style={{ backgroundImage: `url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=2075&q=80')` }}
+      />
+
+      {/* White Overlay Layer (90% Opacity) */}
+      <div className="fixed inset-0 z-0 bg-white/90 pointer-events-none" />
+
       {/* Header */}
-      <header className="border-b border-border bg-card">
+      <header className="border-b border-border bg-white relative z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="grid grid-cols-3 items-center">
             {/* Left: StayFrank Logo */}
@@ -87,7 +96,7 @@ export function UnderwritingWizard({ address, onBack }: UnderwritingWizardProps)
       </header>
 
       {/* Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="container mx-auto px-4 py-8 max-w-4xl relative z-10">
         {step === 1 && (
           <WizardStep1
             address={address}

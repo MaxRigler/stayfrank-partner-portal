@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { User, Mail, Phone, CreditCard, DollarSign, Calendar, HelpCircle, MessageSquare, ChevronDown, Check } from 'lucide-react';
+import { User, Mail, Phone, CreditCard, DollarSign, Calendar, HelpCircle, MessageSquare, ChevronDown, Check, Info } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface WizardStep2Props {
     ownerNames: string[];
@@ -234,17 +235,19 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
         const sectionTitle = isMultipleOwners ? `Homeowner ${index + 1}` : 'Homeowner Details';
 
         return (
-            <div key={index} className="p-4 bg-secondary rounded-xl border border-border">
-                <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <User className="w-4 h-4 text-accent" />
-                    {sectionTitle}
-                </h3>
-
-                <div className="space-y-4">
+            <Card key={index} className="border-t-4 border-t-accent shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                        <div className="p-2 bg-accent/10 rounded-full">
+                            <User className="w-4 h-4 text-accent" />
+                        </div>
+                        {sectionTitle}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                     {/* Owner Name */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-accent" />
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
                             Full Name
                         </Label>
                         <Input
@@ -252,14 +255,13 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                             value={names[index] || ''}
                             onChange={(e) => updateName(index, e.target.value)}
                             placeholder="Enter full name"
-                            className="bg-background border-2 border-accent/50 focus:border-accent"
+                            className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20"
                         />
                     </div>
 
                     {/* Email */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                            <Mail className="w-3.5 h-3.5 text-accent" />
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
                             Email Address
                         </Label>
                         <Input
@@ -267,14 +269,13 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                             value={emails[index] || ''}
                             onChange={(e) => updateEmail(index, e.target.value)}
                             placeholder="email@example.com"
-                            className="bg-background border-2 border-accent/50 focus:border-accent"
+                            className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20"
                         />
                     </div>
 
                     {/* Phone */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5 text-accent" />
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
                             Phone Number
                         </Label>
                         <Input
@@ -282,18 +283,17 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                             value={phones[index] || ''}
                             onChange={(e) => handlePhoneChange(index, e.target.value)}
                             placeholder="(555) 555-5555"
-                            className="bg-background border-2 border-accent/50 focus:border-accent"
+                            className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20"
                         />
                     </div>
 
                     {/* Credit Score */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                            <CreditCard className="w-3.5 h-3.5 text-accent" />
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
                             Estimated Credit Score
                         </Label>
                         <Select value={creditScores[index] || ''} onValueChange={(value) => updateCreditScore(index, value)}>
-                            <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
+                            <SelectTrigger className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20">
                                 <SelectValue placeholder="Select credit score range" />
                             </SelectTrigger>
                             <SelectContent>
@@ -305,30 +305,32 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                             </SelectContent>
                         </Select>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         );
     };
 
     const renderFinancialDetails = () => (
-        <div className="p-4 bg-secondary rounded-xl border border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-accent" />
-                Financial Details
-            </h3>
-
-            <div className="space-y-4">
+        <Card className="border-t-4 border-t-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <div className="p-2 bg-emerald-500/10 rounded-full">
+                        <DollarSign className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    Financial Details
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
                 {/* Mortgage Current - Yes/No Toggle */}
-                <div className="space-y-2">
-                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-accent" />
-                        Have you been current on your mortgage for the last 12 months?
+                <div className="space-y-3">
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                        Current on mortgage (last 12 months)?
                     </Label>
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                         <Button
                             type="button"
                             variant={mortgageCurrent === true ? 'default' : 'outline'}
-                            className={`flex-1 ${mortgageCurrent === true ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
+                            className={`flex-1 h-11 text-base ${mortgageCurrent === true ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent' : 'hover:border-emerald-500/50 hover:bg-emerald-50'}`}
                             onClick={() => setMortgageCurrent(true)}
                         >
                             Yes
@@ -336,7 +338,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                         <Button
                             type="button"
                             variant={mortgageCurrent === false ? 'default' : 'outline'}
-                            className={`flex-1 ${mortgageCurrent === false ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
+                            className={`flex-1 h-11 text-base ${mortgageCurrent === false ? 'bg-destructive hover:bg-destructive/90 text-white border-transparent' : 'hover:border-destructive/50 hover:bg-destructive/5'}`}
                             onClick={() => setMortgageCurrent(false)}
                         >
                             No
@@ -346,8 +348,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
                 {/* Reason for Money - Multi-select */}
                 <div className="space-y-1.5">
-                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                        <HelpCircle className="w-3.5 h-3.5 text-accent" />
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
                         Reason for Seeking Funds
                     </Label>
                     <MultiSelectReasons
@@ -358,12 +359,11 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
                 {/* Amount Looking For */}
                 <div className="space-y-1.5">
-                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                        <DollarSign className="w-3.5 h-3.5 text-accent" />
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
                         How Much Are You Looking For?
                     </Label>
                     <Select value={moneyAmount} onValueChange={setMoneyAmount}>
-                        <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
+                        <SelectTrigger className="bg-background h-11 border-input focus:border-emerald-500 focus:ring-emerald-500/20">
                             <SelectValue placeholder="Select amount range" />
                         </SelectTrigger>
                         <SelectContent>
@@ -375,24 +375,34 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                         </SelectContent>
                     </Select>
                 </div>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 
     const renderHelpfulContextSection = () => (
-        <div className="p-4 bg-secondary rounded-xl border border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-accent" />
-                Helpful Context for StayFrank
-            </h3>
-
-            <Textarea
-                value={helpfulContext}
-                onChange={(e) => setHelpfulContext(e.target.value)}
-                placeholder="E.g., homeowner's timeline, special circumstances, additional notes..."
-                className="bg-background border-2 border-accent/50 focus:border-accent min-h-[80px] resize-none"
-            />
-        </div>
+        <Card className="border-t-4 border-t-purple-500 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <div className="p-2 bg-purple-500/10 rounded-full">
+                        <MessageSquare className="w-4 h-4 text-purple-600" />
+                    </div>
+                    Helpful Context for StayFrank
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="relative">
+                    <Textarea
+                        value={helpfulContext}
+                        onChange={(e) => setHelpfulContext(e.target.value)}
+                        placeholder="E.g., homeowner's timeline, special circumstances, additional notes..."
+                        className="bg-background min-h-[100px] resize-none border-input focus:border-purple-500 focus:ring-purple-500/20 pt-3"
+                    />
+                    <div className="absolute top-3 right-3 opacity-50">
+                        <Info className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 
     return (

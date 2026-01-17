@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Home, DollarSign, MapPin, Loader2, Send } from 'lucide-react';
-import { formatCurrency } from '@/lib/heaCalculator';
-import { calculateSaleLeaseback, SL_ELIGIBLE_STATES } from '@/lib/slCalculator';
-import { calculateHEIEligibility, HEI_ELIGIBLE_STATES } from '@/lib/heaCalculator';
+import { CheckCircle2, MapPin, Loader2, Send, Building2, Percent, ArrowRight } from 'lucide-react';
+import { formatCurrency, checkDualProductEligibility } from '@/lib/heaCalculator';
 import { toast } from 'sonner';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { triggerConfetti } from '@/components/ui/confetti';
 import { supabase } from '@/integrations/supabase/client';
 import { PersonalDetailsData } from './WizardStep2';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface DualOfferDisplayProps {
   address: string;
@@ -56,17 +56,15 @@ export function DualOfferDisplay({
   onBack,
   onReset
 }: DualOfferDisplayProps) {
-  const isMobile = useIsMobile();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // Calculate eligibility for both products
-  const slResult = calculateSaleLeaseback(homeValue, mortgageBalance, state, propertyType);
-  const heiResult = calculateHEIEligibility(homeValue, mortgageBalance, state, propertyType, ownershipType);
+  // Calculate eligibility for both products using the dual-product checker
+  const dualEligibility = checkDualProductEligibility(homeValue, mortgageBalance, state, propertyType, ownershipType);
 
   // Trigger confetti if at least one product is eligible
   useEffect(() => {
-    if (slResult.isEligible || heiResult.isEligible) {
+    if (dualEligibility.eitherEligible) {
       triggerConfetti();
     }
   }, []);
@@ -81,7 +79,7 @@ export function DualOfferDisplay({
         return;
       }
 
-      // Create submission in local database
+      // Create submission in local database - store BOTH product eligibility results
       const { data: submission, error: submissionError } = await supabase
         .from('submissions')
         .insert({
@@ -92,12 +90,12 @@ export function DualOfferDisplay({
           owner_names: ownerNames || [],
           property_type: propertyType,
           state: state,
-          sl_eligible: slResult.isEligible,
-          sl_offer_amount: slResult.isEligible ? slResult.availableCash : null,
-          sl_ineligibility_reasons: slResult.ineligibilityReasons,
-          hei_eligible: heiResult.isEligible,
-          hei_max_investment: heiResult.isEligible ? heiResult.maxInvestment : null,
-          hei_ineligibility_reasons: heiResult.ineligibilityReasons,
+          sl_eligible: dualEligibility.slEligible,
+          sl_offer_amount: dualEligibility.slEligible ? dualEligibility.slOfferAmount : null,
+          sl_ineligibility_reasons: dualEligibility.slEligible ? [] : dualEligibility.combinedReasons,
+          hei_eligible: dualEligibility.heiEligible,
+          hei_max_investment: dualEligibility.heiEligible ? dualEligibility.heiMaxInvestment : null,
+          hei_ineligibility_reasons: dualEligibility.heiEligible ? [] : dualEligibility.combinedReasons,
           // Personal Details
           owner_emails: personalDetails?.ownerEmails || [],
           owner_phones: personalDetails?.ownerPhones || [],
@@ -126,10 +124,10 @@ export function DualOfferDisplay({
           owner_names: ownerNames || [],
           property_type: propertyType,
           state: state,
-          sl_eligible: slResult.isEligible,
-          sl_offer_amount: slResult.isEligible ? slResult.availableCash : null,
-          hei_eligible: heiResult.isEligible,
-          hei_max_investment: heiResult.isEligible ? heiResult.maxInvestment : null,
+          sl_eligible: dualEligibility.slEligible,
+          sl_offer_amount: dualEligibility.slEligible ? dualEligibility.slOfferAmount : null,
+          hei_eligible: dualEligibility.heiEligible,
+          hei_max_investment: dualEligibility.heiEligible ? dualEligibility.heiMaxInvestment : null,
         }
       });
 
@@ -162,183 +160,141 @@ export function DualOfferDisplay({
 
   if (submitted) {
     return (
-      <div className="space-y-6">
-        <div className="p-8 bg-[hsl(var(--success))]/10 rounded-xl border border-[hsl(var(--success))]/30 text-center">
-          <CheckCircle2 className="w-16 h-16 text-[hsl(var(--success))] mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-[hsl(var(--success))] mb-2">Deal Submitted!</h2>
-          <p className="text-muted-foreground mb-4">
-            Your lead has been sent to StayFrank. Their team will reach out to the homeowner shortly.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Property: {address}
-          </p>
-        </div>
+      <div className="space-y-6 max-w-2xl mx-auto">
+        <Card className="border-success/30 bg-success/5">
+          <CardContent className="pt-6 pb-8 text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-8 h-8 text-success" />
+            </div>
+            <h2 className="text-2xl font-bold text-success">Deal Submitted Successfully!</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Your lead has been securely sent to StayFrank. Their team will review the property and reach out to the homeowner shortly.
+            </p>
+            <div className="mt-6 p-4 bg-background rounded-lg border inline-block text-left text-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">{address}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Button variant="outline" onClick={onReset} className="w-full">
-          Submit Another Property
+          Scan Another Property
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Property Summary */}
-      <div className="p-4 bg-secondary rounded-xl border border-border">
-        <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-sm text-foreground/70 font-medium">Property</p>
-            <p className="font-bold text-muted-foreground">{address}</p>
-            <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-              <span>Value: {formatCurrency(homeValue)}</span>
-              <span>Mortgage: {formatCurrency(mortgageBalance)}</span>
-              <span>LTV: {currentCLTV.toFixed(1)}%</span>
-            </div>
-          </div>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Property Context Strip */}
+      <div className="bg-background/50 backdrop-blur-sm px-4 py-3 rounded-lg border flex items-center justify-between text-sm text-muted-foreground md:flex-row flex-col gap-2 md:gap-0">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-primary" />
+          <span className="font-medium text-foreground">{address}</span>
+        </div>
+        <div className="flex gap-4 text-xs md:text-sm">
+          <span>Value: <span className="font-medium text-foreground">{formatCurrency(homeValue)}</span></span>
+          <span className="hidden md:inline text-border">|</span>
+          <span>Mortgage: <span className="font-medium text-foreground">{formatCurrency(mortgageBalance)}</span></span>
         </div>
       </div>
 
-      {/* Dual Offer Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sale-Leaseback Offer */}
-        <div className={`p-6 rounded-xl border ${slResult.isEligible
-          ? 'bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30'
-          : 'bg-destructive/10 border-destructive/30'}`}>
-          <div className="flex items-center gap-2 mb-4">
-            {slResult.isEligible ? (
-              <CheckCircle2 className="w-6 h-6 text-[hsl(var(--success))]" />
-            ) : (
-              <XCircle className="w-6 h-6 text-destructive" />
-            )}
-            <span className={`text-lg font-bold ${slResult.isEligible ? 'text-[hsl(var(--success))]' : 'text-destructive'}`}>
-              Sell & Stay (Sale-Leaseback)
-            </span>
+      {/* Main Consolidated Offer Card */}
+      <Card className="border-2 border-emerald-500/20 shadow-lg overflow-hidden relative">
+        {/* Decorative Top Banner */}
+        <div className="h-2 bg-gradient-to-r from-emerald-400 to-emerald-600 w-full absolute top-0 left-0" />
+
+        <CardHeader className="text-center pt-10 pb-2">
+          <div className="mx-auto bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-sm font-semibold inline-flex items-center gap-2 mb-4">
+            <CheckCircle2 className="w-4 h-4" />
+            Pre-Qualification Successful
+          </div>
+          <CardTitle className="text-3xl md:text-4xl text-foreground font-bold tracking-tight">
+            Your Client Pre-Qualifies!
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-8 pb-10">
+          {/* Funding Amount Section */}
+          <div className="text-center space-y-2">
+            <p className="text-muted-foreground font-medium uppercase tracking-wide text-xs">Estimated Funding Capacity</p>
+            <div className="text-5xl md:text-6xl font-extrabold text-emerald-600 tracking-tight">
+              {formatCurrency(dualEligibility.higherAmount)}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Based on {formatCurrency(homeValue)} home value
+            </p>
           </div>
 
-          {slResult.isEligible ? (
-            <>
-              <div className="mb-4">
-                <p className="text-xs text-foreground/70 font-medium mb-1">Estimated Cash Available</p>
-                <p className="text-3xl font-bold text-[hsl(var(--success))]">
-                  {formatCurrency(slResult.availableCash)}
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">
-                Homeowner sells property to StayFrank and stays as a tenant for up to 3 years.
-              </p>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[hsl(var(--success))]" />
-                  <span className="text-muted-foreground">Eligible State: {getStateName(state)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[hsl(var(--success))]" />
-                  <span className="text-muted-foreground">Property Type: {propertyType}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[hsl(var(--success))]" />
-                  <span className="text-muted-foreground">LTV: {slResult.ltv.toFixed(1)}% (under 65%)</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-destructive mb-2">Not Eligible</p>
-              {slResult.ineligibilityReasons.map((reason, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <XCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-muted-foreground">{reason}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          <Separator className="max-w-xl mx-auto opacity-50" />
 
-        {/* HEI Offer */}
-        <div className={`p-6 rounded-xl border ${heiResult.isEligible
-          ? 'bg-[hsl(var(--success))]/10 border-[hsl(var(--success))]/30'
-          : 'bg-destructive/10 border-destructive/30'}`}>
-          <div className="flex items-center gap-2 mb-4">
-            {heiResult.isEligible ? (
-              <CheckCircle2 className="w-6 h-6 text-[hsl(var(--success))]" />
-            ) : (
-              <XCircle className="w-6 h-6 text-destructive" />
-            )}
-            <span className={`text-lg font-bold ${heiResult.isEligible ? 'text-[hsl(var(--success))]' : 'text-destructive'}`}>
-              Home Equity Investment (HEI)
-            </span>
+          {/* Qualification Badges Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <div className="bg-secondary/50 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 border hover:border-emerald-500/30 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-1">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <p className="text-xs text-muted-foreground font-medium uppercase">State</p>
+              <p className="font-semibold text-foreground flex items-center gap-1">
+                {getStateName(state)}
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              </p>
+            </div>
+
+            <div className="bg-secondary/50 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 border hover:border-emerald-500/30 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mb-1">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <p className="text-xs text-muted-foreground font-medium uppercase">Property</p>
+              <p className="font-semibold text-foreground flex items-center gap-1">
+                {propertyType}
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              </p>
+            </div>
+
+            <div className="bg-secondary/50 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 border hover:border-emerald-500/30 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mb-1">
+                <Percent className="w-5 h-5" />
+              </div>
+              <p className="text-xs text-muted-foreground font-medium uppercase">LTV</p>
+              <p className="font-semibold text-foreground flex items-center gap-1">
+                {currentCLTV.toFixed(1)}%
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+              </p>
+            </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {heiResult.isEligible ? (
-            <>
-              <div className="mb-4">
-                <p className="text-xs text-foreground/70 font-medium mb-1">Maximum Funding</p>
-                <p className="text-3xl font-bold text-[hsl(var(--success))]">
-                  {formatCurrency(heiResult.maxInvestment)}
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">
-                Homeowner keeps ownership, receives cash in exchange for a share of future appreciation.
-              </p>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[hsl(var(--success))]" />
-                  <span className="text-muted-foreground">Eligible State: {getStateName(state)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[hsl(var(--success))]" />
-                  <span className="text-muted-foreground">Property Type: {propertyType}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[hsl(var(--success))]" />
-                  <span className="text-muted-foreground">No Monthly Payments</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-destructive mb-2">Not Eligible</p>
-              {heiResult.ineligibilityReasons.map((reason, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <XCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-muted-foreground">{reason}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1" disabled={isSubmitting}>
+      {/* Action Area */}
+      <div className="flex flex-col sm:flex-row gap-4 pt-4 max-w-3xl mx-auto">
+        <Button
+          variant="outline"
+          onClick={onBack}
+          className="flex-1 h-12 text-base border-2 hover:bg-secondary/80"
+          disabled={isSubmitting}
+        >
           Back
         </Button>
         <Button
-          variant="success"
           onClick={handleSubmitToStayFrank}
-          className="flex-[2]"
-          disabled={isSubmitting || (!slResult.isEligible && !heiResult.isEligible)}
+          className="flex-[2] h-12 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20 shadow-lg transition-all hover:scale-[1.01]"
+          disabled={isSubmitting || !dualEligibility.eitherEligible}
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Submitting...
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              Processing...
             </>
           ) : (
             <>
-              <Send className="h-4 w-4 mr-2" />
               Submit Deal to StayFrank
+              <ArrowRight className="h-5 w-5 ml-2" />
             </>
           )}
         </Button>
       </div>
-
-      {!slResult.isEligible && !heiResult.isEligible && (
-        <p className="text-center text-sm text-muted-foreground">
-          This property does not qualify for either program. You cannot submit this deal.
-        </p>
-      )}
     </div>
   );
 }

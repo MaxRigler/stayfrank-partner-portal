@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { CheckCircle2, XCircle, Loader2, MapPin, Building, User, AlertCircle, TrendingUp, X, DollarSign, Calendar, RefreshCw, Home, Percent, RotateCcw } from 'lucide-react';
-import { ELIGIBLE_STATES, INELIGIBLE_PROPERTY_TYPES, INELIGIBLE_OWNERSHIP_TYPES, validateProperty, formatCurrency, formatPercentage, calculateMaxInvestment, calculateHEACost } from '@/lib/heaCalculator';
+import { ELIGIBLE_STATES, INELIGIBLE_PROPERTY_TYPES, INELIGIBLE_OWNERSHIP_TYPES, validateProperty, formatCurrency, formatPercentage, calculateMaxInvestment, calculateHEACost, checkDualProductEligibility } from '@/lib/heaCalculator';
 import { lookupProperty, detectOwnershipType } from '@/lib/api/atom';
 import { toast } from 'sonner';
 
@@ -233,8 +235,14 @@ export function WizardStep1({
   // CLTV calculations
   const currentCLTV = homeValue > 0 ? mortgageBalance / homeValue * 100 : 0;
   const maxInvestment = calculateMaxInvestment(homeValue, mortgageBalance);
-  const isCLTVEligible = currentCLTV <= 80 && maxInvestment >= 15000;
-  const isFullyEligible = validation?.isValid && isCLTVEligible;
+
+  // Dual-product eligibility check - allows progression if EITHER SL or HEI qualifies
+  const dualEligibility = useMemo(() => {
+    if (!state || !propertyType || !ownershipType) return null;
+    return checkDualProductEligibility(homeValue, mortgageBalance, state, propertyType, ownershipType);
+  }, [homeValue, mortgageBalance, state, propertyType, ownershipType]);
+
+  const isFullyEligible = dualEligibility?.eitherEligible ?? false;
 
   // Update funding amount when maxInvestment changes
   useEffect(() => {
@@ -243,27 +251,11 @@ export function WizardStep1({
     }
   }, [maxInvestment]);
 
-  // Combine all validation errors for display
+  // Combine all validation errors for display - only show when NEITHER product qualifies
   const displayErrors = useMemo(() => {
-    const errors: string[] = [];
-
-    // Add errors from property validation (State, Type, Ownership, Value)
-    if (validation?.errors) {
-      errors.push(...validation.errors);
-    }
-
-    // Add CLTV error
-    if (currentCLTV > 80) {
-      errors.push(`Current Loan-to-Value (LTV) cannot exceed 80%. Your LTV is ${currentCLTV.toFixed(1)}%.`);
-    }
-
-    // Add Investment/Equity error
-    if (maxInvestment < 15000) {
-      errors.push('Available equity must allow for a minimum investment of $15,000.');
-    }
-
-    return errors;
-  }, [validation, currentCLTV, maxInvestment]);
+    if (!dualEligibility) return [];
+    return dualEligibility.combinedReasons;
+  }, [dualEligibility]);
 
   // Payoff calculation
   const calculation = useMemo(() => {
@@ -461,141 +453,166 @@ export function WizardStep1({
       </Dialog>
 
       {/* Desktop Layout */}
-      <div className="hidden md:block">
-        {/* Address & Owner Card - Top */}
-        <div className="p-4 bg-secondary rounded-xl border border-border mb-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-start gap-4">
-              <MapPin className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
-              <div className="text-left">
-                <p className="text-xs text-foreground/70 font-medium">Property Address</p>
-                <p className="font-medium text-muted-foreground text-sm">{address}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <User className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
-              <div className="text-left">
-                <p className="text-xs text-foreground/70 font-medium">Property Owner</p>
-                <p className="font-medium text-muted-foreground">{propertyOwner}</p>
-              </div>
-            </div>
+      <div className="hidden md:block space-y-6">
+        {/* Address & Owner Card */}
+        <Card className="overflow-hidden border-t-4 border-t-accent relative shadow-sm hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <MapPin className="w-24 h-24" />
           </div>
-        </div>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-2 gap-8 relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-6 h-6 text-accent" />
+                </div>
+                <div className="text-left space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Property Address</p>
+                  <p className="font-semibold text-lg leading-tight">{address}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 border-l pl-8">
+                <div className="w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center flex-shrink-0">
+                  <User className="w-6 h-6 text-primary" />
+                </div>
+                <div className="text-left space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Property Owner</p>
+                  <p className="font-semibold text-lg">{propertyOwner}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Two Column Sliders - Property Value & Mortgage Balance */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-2 gap-6">
           {/* Confirm Property Value */}
-          <div className="p-4 bg-secondary rounded-xl border border-border">
-            <p className="text-sm font-semibold text-muted-foreground text-center mb-4">Confirm Property Value</p>
-            <div className="flex justify-center mb-4">
-              <Input
-                type="text"
-                value={isHomeValueFocused ? `$${Number(homeValueInput || 0).toLocaleString()}` : formatCurrency(homeValue)}
-                onChange={handleHomeValueInputChange}
-                onFocus={handleHomeValueFocus}
-                onBlur={handleHomeValueBlur}
-                className={`text-2xl font-bold bg-background h-14 w-44 text-center border-2 ${homeValue < 175000 ? 'border-destructive' : 'border-accent'}`}
-              />
-            </div>
-            <div className="px-2">
-              <Slider
-                value={[homeValue]}
-                onValueChange={(value) => handleHomeValueChange(value[0])}
-                min={175000}
-                max={3000000}
-                step={20000}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                <span>$175K</span>
-                <span>$3M</span>
+          <Card className="border-t-4 border-t-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2 text-center">
+              <CardTitle className="text-base font-medium text-muted-foreground">Confirm Property Value</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 pb-8">
+              <div className="flex justify-center">
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <Input
+                    type="text"
+                    value={isHomeValueFocused ? Number(homeValueInput || 0).toLocaleString() : formatCurrency(homeValue).replace('$', '')}
+                    onChange={handleHomeValueInputChange}
+                    onFocus={handleHomeValueFocus}
+                    onBlur={handleHomeValueBlur}
+                    className={`text-3xl font-bold bg-transparent h-16 w-64 text-center border-2 pl-6 shadow-sm ${homeValue < 175000 ? 'border-destructive focus-visible:ring-destructive' : 'border-emerald-500/50 focus-visible:ring-emerald-500'}`}
+                  />
+                </div>
               </div>
-            </div>
-          </div>
+              <div className="px-4">
+                <Slider
+                  value={[homeValue]}
+                  onValueChange={(value) => handleHomeValueChange(value[0])}
+                  min={175000}
+                  max={3000000}
+                  step={20000}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs font-medium text-muted-foreground mt-2">
+                  <span>$175K</span>
+                  <span>$3M</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Confirm Mortgage Balance */}
-          <div className="p-4 bg-secondary rounded-xl border border-border">
-            <p className="text-sm font-semibold text-muted-foreground text-center mb-4">Confirm Mortgage Balance</p>
-            <div className="flex justify-center mb-4">
-              <Input
-                type="text"
-                value={formatCurrency(mortgageBalance)}
-                onChange={handleMortgageInputChange}
-                className="text-2xl font-bold bg-background h-14 w-44 text-center border-2 border-accent"
-              />
-            </div>
-            <div className="px-2">
-              <Slider
-                value={[mortgageBalance]}
-                onValueChange={(value) => handleMortgageChange(value[0])}
-                min={0}
-                max={homeValue}
-                step={10000}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                <span>$0</span>
-                <span>{formatCurrency(homeValue)}</span>
+          <Card className="border-t-4 border-t-blue-500 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2 text-center">
+              <CardTitle className="text-base font-medium text-muted-foreground">Confirm Mortgage Balance</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 pb-8">
+              <div className="flex justify-center">
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <Input
+                    type="text"
+                    value={formatCurrency(mortgageBalance).replace('$', '')}
+                    onChange={handleMortgageInputChange}
+                    className="text-3xl font-bold bg-transparent h-16 w-64 text-center border-2 border-blue-500/50 focus-visible:ring-blue-500 shadow-sm pl-6"
+                  />
+                </div>
               </div>
-            </div>
-          </div>
+              <div className="px-4">
+                <Slider
+                  value={[mortgageBalance]}
+                  onValueChange={(value) => handleMortgageChange(value[0])}
+                  min={0}
+                  max={homeValue}
+                  step={10000}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs font-medium text-muted-foreground mt-2">
+                  <span>$0</span>
+                  <span>{formatCurrency(homeValue)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Property Details Dropdowns - No Headline */}
-        <div className="p-4 bg-secondary rounded-xl border border-border mb-4">
-          <div className="grid grid-cols-3 gap-4">
-            {/* State */}
-            <div className="flex items-start gap-4">
-              <MapPin className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1 text-left">
-                <p className="text-xs text-foreground/70 font-medium mb-1">State</p>
+        {/* Property Details Dropdowns */}
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-3 gap-8">
+              {/* State */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">State</span>
+                </div>
                 <Select value={state} onValueChange={setState}>
-                  <SelectTrigger className={`bg-background text-sm h-10 ${state ? isStateEligible(state) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
-                    <SelectValue placeholder="Select">{state ? state : 'Select'}</SelectValue>
+                  <SelectTrigger className={`bg-background h-12 text-base ${state ? isStateEligible(state) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                    <SelectValue placeholder="Select State">{state ? state : 'Select State'}</SelectValue>
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
                     {ALL_STATES.map(s => (
-                      <SelectItem key={s.abbr} value={s.abbr} className={isStateEligible(s.abbr) ? 'text-[hsl(var(--success))]' : 'text-destructive'}>
+                      <SelectItem key={s.abbr} value={s.abbr} className={isStateEligible(s.abbr) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
                         {s.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {/* Property Type */}
-            <div className="flex items-start gap-4">
-              <Building className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1 text-left">
-                <p className="text-xs text-foreground/70 font-medium mb-1">Property Type</p>
+              {/* Property Type */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Building className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Property Type</span>
+                </div>
                 <Select value={propertyType} onValueChange={setPropertyType}>
-                  <SelectTrigger className={`bg-background text-sm h-10 ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
-                    <SelectValue placeholder="Select" />
+                  <SelectTrigger className={`bg-background h-12 text-base ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                    <SelectValue placeholder="Select Type" />
                   </SelectTrigger>
                   <SelectContent>
                     {PROPERTY_TYPES.map(type => (
-                      <SelectItem key={type} value={type} className={isPropertyTypeEligible(type) ? 'text-[hsl(var(--success))]' : 'text-destructive'}>
+                      <SelectItem key={type} value={type} className={isPropertyTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
                         {type}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {/* Ownership Type */}
-            <div className="flex items-start gap-4">
-              <User className="w-6 h-6 text-accent mt-0.5 flex-shrink-0" />
-              <div className="flex-1 text-left">
-                <p className="text-xs text-foreground/70 font-medium mb-1">Ownership Type</p>
+              {/* Ownership Type */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <User className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Ownership</span>
+                </div>
                 <Select value={ownershipType} onValueChange={setOwnershipType}>
-                  <SelectTrigger className={`bg-background text-sm h-10 ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-[hsl(var(--success))] border-2 text-[hsl(var(--success))]' : 'border-destructive border-2 text-destructive' : ''}`}>
-                    <SelectValue placeholder="Select" />
+                  <SelectTrigger className={`bg-background h-12 text-base ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                    <SelectValue placeholder="Select Ownership" />
                   </SelectTrigger>
                   <SelectContent>
                     {OWNERSHIP_TYPES.map(type => (
-                      <SelectItem key={type} value={type} className={isOwnershipTypeEligible(type) ? 'text-[hsl(var(--success))]' : 'text-destructive'}>
+                      <SelectItem key={type} value={type} className={isOwnershipTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
                         {type}
                       </SelectItem>
                     ))}
@@ -603,8 +620,8 @@ export function WizardStep1({
                 </Select>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Mobile Layout */}
