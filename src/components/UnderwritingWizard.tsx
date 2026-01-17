@@ -55,16 +55,16 @@ export function UnderwritingWizard({ address, onBack }: UnderwritingWizardProps)
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between relative">
+          <div className="grid grid-cols-3 items-center">
             {/* Left: StayFrank Logo */}
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold justify-self-start">
               <span className="text-[hsl(38,78%,57%)]">Stay</span>
               <span className="text-[hsl(276,40%,17%)]">Frank</span>
               <span className="text-[hsl(38,78%,57%)]">.</span>
             </div>
 
             {/* Center: Progress Steps */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <span className={step === 1 ? 'text-accent font-semibold' : ''}>
                 1. Property Details
               </span>
@@ -79,7 +79,9 @@ export function UnderwritingWizard({ address, onBack }: UnderwritingWizardProps)
             </div>
 
             {/* Right: User Menu with light variant (white background) */}
-            <UserMenu variant="light" />
+            <div className="justify-self-end">
+              <UserMenu variant="light" />
+            </div>
           </div>
         </div>
       </header>

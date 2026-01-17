@@ -46,44 +46,49 @@ const Index = () => {
   // Initialize session from localStorage synchronously
   const initialSession = getStoredSession();
   const [session, setSession] = useState<Session | null>(initialSession);
-  const [checkingSession, setCheckingSession] = useState(!initialSession);
+  // Only show loading if we have a localStorage session to verify
+  // If no localStorage session, immediately show login button (no waiting for Supabase API)
+  const [checkingSession, setCheckingSession] = useState(!!initialSession);
 
   // Verify session with Supabase and listen for auth changes
   useEffect(() => {
     let mounted = true;
 
     // If we already have a session from localStorage, verify it in the background
-    // but don't show loading state (checkingSession is already false)
+    // If no localStorage session, we already know user is logged out - no need to call Supabase
     console.log('Index: Initial session from localStorage:', initialSession ? 'found' : 'not found');
 
-    // Verify with Supabase (but don't block UI on this)
-    supabase.auth.getSession()
-      .then(({ data: { session: supabaseSession } }) => {
-        console.log('Index: Supabase session check:', supabaseSession ? 'logged in' : 'not logged in');
-        if (mounted) {
-          setSession(supabaseSession);
-          setCheckingSession(false);
-        }
-      })
-      .catch((err) => {
-        // AbortError is common with React's cleanup - don't treat it as logout
-        if (err?.name === 'AbortError') {
-          console.log('Index: Session check aborted (likely React remount), keeping current state');
-          // Keep the session from localStorage if we have it
-          if (mounted && !session) {
-            setCheckingSession(false);
-          }
-        } else {
-          console.error('Index: Session check failed:', err);
+    if (!initialSession) {
+      // No localStorage session = definitely not logged in, no need to check Supabase
+      console.log('Index: No localStorage session, skipping Supabase check');
+      setCheckingSession(false);
+    } else {
+      // Verify existing localStorage session with Supabase
+      supabase.auth.getSession()
+        .then(({ data: { session: supabaseSession } }) => {
+          console.log('Index: Supabase session check:', supabaseSession ? 'logged in' : 'not logged in');
           if (mounted) {
-            // Only clear session if we don't have one from localStorage
-            if (!initialSession) {
-              setSession(null);
-            }
+            setSession(supabaseSession);
             setCheckingSession(false);
           }
-        }
-      });
+        })
+        .catch((err) => {
+          // AbortError is common with React's cleanup - don't treat it as logout
+          if (err?.name === 'AbortError') {
+            console.log('Index: Session check aborted (likely React remount), keeping current state');
+            // Keep the session from localStorage if we have it
+            if (mounted) {
+              setCheckingSession(false);
+            }
+          } else {
+            console.error('Index: Session check failed:', err);
+            if (mounted) {
+              // Keep localStorage session if Supabase API fails
+              setCheckingSession(false);
+            }
+          }
+        });
+    }
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {

@@ -137,14 +137,24 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
     }, [user, storedUser]);
 
     // Separate useEffect for admin role check - runs independently
+    // This is designed to be resilient to AbortError which happens frequently in dev mode
     useEffect(() => {
         let mounted = true;
         let retryCount = 0;
-        const maxRetries = 3;
+        const maxRetries = 5; // Increased retries for more resilience
+        const retryDelays = [500, 1000, 2000, 3000, 4000]; // Exponential backoff
 
         const checkAdminRole = async () => {
             const currentUser = user || storedUser;
             if (!currentUser?.id) return;
+
+            // Check cached status first - if it's true, set state immediately
+            // This ensures the admin link shows even if API calls fail
+            const cachedStatus = getCachedAdminStatus(currentUser.id);
+            if (cachedStatus && mounted) {
+                console.log('UserMenu: Setting admin from cache before API check');
+                setIsAdmin(true);
+            }
 
             try {
                 console.log('UserMenu: Checking admin role for user:', currentUser.id);
@@ -157,40 +167,64 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
 
                 if (error) {
                     console.warn('UserMenu: Error checking admin role:', error.message);
-                    // Retry on AbortError
-                    if (retryCount < maxRetries && (error.message.includes('abort') || error.message.includes('AbortError'))) {
+                    const isAbortError = error.message.includes('abort') || error.message.includes('AbortError');
+
+                    // Retry on AbortError with exponential backoff
+                    if (retryCount < maxRetries && isAbortError) {
+                        const delay = retryDelays[retryCount] || 4000;
                         retryCount++;
-                        console.log(`UserMenu: Retrying admin role check (${retryCount}/${maxRetries})...`);
-                        setTimeout(checkAdminRole, 1000);
+                        console.log(`UserMenu: Retrying admin role check (${retryCount}/${maxRetries}) in ${delay}ms...`);
+                        setTimeout(checkAdminRole, delay);
                         return;
+                    }
+
+                    // On final failure, trust the cached value if it exists
+                    // Don't reset isAdmin to false on errors
+                    if (cachedStatus && mounted) {
+                        console.log('UserMenu: Trusting cached admin status after API failures');
+                        setIsAdmin(true);
                     }
                     return;
                 }
 
+                // We got a successful response - update state and cache accordingly
                 if (roleData && mounted) {
-                    console.log('UserMenu: User has admin role');
+                    console.log('UserMenu: User has admin role (confirmed by API)');
                     setIsAdmin(true);
                     setCachedAdminStatus(currentUser.id, true);
                 } else if (mounted) {
-                    console.log('UserMenu: User does not have admin role');
+                    // Only set to false if we got a definitive "not admin" response from API
+                    console.log('UserMenu: User does not have admin role (confirmed by API)');
+                    setIsAdmin(false);
                     setCachedAdminStatus(currentUser.id, false);
                 }
             } catch (err: any) {
                 console.warn('UserMenu: Error checking admin role:', err?.message || err);
-                // Retry on AbortError
-                if (retryCount < maxRetries && (err?.name === 'AbortError' || err?.message?.includes('abort'))) {
+                const isAbortError = err?.name === 'AbortError' || err?.message?.includes('abort');
+
+                // Retry on AbortError with exponential backoff
+                if (retryCount < maxRetries && isAbortError) {
+                    const delay = retryDelays[retryCount] || 4000;
                     retryCount++;
-                    console.log(`UserMenu: Retrying admin role check after error (${retryCount}/${maxRetries})...`);
-                    setTimeout(checkAdminRole, 1000);
+                    console.log(`UserMenu: Retrying admin role check after error (${retryCount}/${maxRetries}) in ${delay}ms...`);
+                    setTimeout(checkAdminRole, delay);
+                    return;
+                }
+
+                // On final failure, trust the cached value if it exists
+                if (cachedStatus && mounted) {
+                    console.log('UserMenu: Trusting cached admin status after catch errors');
+                    setIsAdmin(true);
                 }
             }
         };
 
-        // Longer delay to avoid race conditions with auth and Strict Mode remounting
-        setTimeout(checkAdminRole, 1000);
+        // Slightly delayed start to avoid React Strict Mode immediate remount issues
+        const timeoutId = setTimeout(checkAdminRole, 500);
 
         return () => {
             mounted = false;
+            clearTimeout(timeoutId);
         };
     }, [user, storedUser]);
 
@@ -229,15 +263,20 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
         }
     };
 
-    const handleSignOut = async () => {
+    const handleSignOut = () => {
         setIsPopoverOpen(false);
-        try {
-            await supabase.auth.signOut();
-            localStorage.removeItem('sb-ximkveundgebbvbgacfu-auth-token');
-            window.location.href = '/';
-        } catch (err) {
-            console.error('Sign out error:', err);
+        // Clear localStorage first to ensure sign-out works even if API call is aborted
+        localStorage.removeItem('sb-ximkveundgebbvbgacfu-auth-token');
+        // Also clear admin status cache
+        if (user?.id) {
+            localStorage.removeItem(`admin_status_${user.id}`);
         }
+        // Fire and forget the Supabase signOut - don't await to prevent AbortError issues
+        supabase.auth.signOut().catch((err) => {
+            console.warn('Sign out API call failed (expected if aborted):', err);
+        });
+        // Always redirect regardless of API success
+        window.location.href = '/';
     };
 
     const getStatusBadge = () => {
@@ -273,7 +312,7 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
                     <button
                         type="button"
                         className={`
-                            flex items-center gap-3 px-4 py-3
+                            flex items-center gap-2 md:gap-3 px-2 md:px-4 py-2 md:py-3
                             transition-all duration-200 cursor-pointer
                             ${variant === 'light'
                                 ? 'bg-transparent hover:bg-gray-50 text-gray-800'
@@ -283,13 +322,14 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
                         `}
                     >
                         <User className={`w-5 h-5 ${variant === 'light' ? 'text-[hsl(var(--purple-medium))]' : 'opacity-80'}`} />
-                        <div className="flex flex-col items-start text-left leading-tight">
+                        {/* Hide name and company on mobile to prevent overlap with wizard steps */}
+                        <div className="hidden md:flex flex-col items-start text-left leading-tight">
                             <span className="text-sm font-semibold">{displayName}</span>
                             {displayCompany && (
                                 <span className={`text-xs ${variant === 'light' ? 'text-gray-500' : 'opacity-70'}`}>{displayCompany}</span>
                             )}
                         </div>
-                        <ChevronDown className={`w-4 h-4 ml-1 ${variant === 'light' ? 'text-gray-400' : 'opacity-60'}`} />
+                        <ChevronDown className={`w-4 h-4 ${variant === 'light' ? 'text-gray-400' : 'opacity-60'}`} />
                     </button>
                 </PopoverTrigger>
                 <PopoverContent

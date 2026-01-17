@@ -47,6 +47,27 @@ export default function AdminDashboard() {
     let retryCount = 0;
     const maxRetries = 3;
 
+    // Cache admin status when AdminDashboard loads successfully
+    // This ensures the cache is populated even if other checks fail
+    const cacheAdminStatus = () => {
+      try {
+        const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
+        const storedData = localStorage.getItem(storageKey);
+        if (storedData) {
+          const parsed = JSON.parse(storedData);
+          if (parsed?.user?.id) {
+            console.log('AdminDashboard: Caching admin status for user:', parsed.user.id);
+            localStorage.setItem(`admin_status_${parsed.user.id}`, 'true');
+          }
+        }
+      } catch (e) {
+        console.warn('AdminDashboard: Failed to cache admin status:', e);
+      }
+    };
+
+    // Cache admin status immediately on load
+    cacheAdminStatus();
+
     const fetchProfiles = async () => {
       try {
         console.log('AdminDashboard: Fetching profiles via REST API...');
