@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AuthModal } from '@/components/AuthModal';
-import { supabase } from '@/integrations/supabase/client';
-import { Session } from '@supabase/supabase-js';
+import { useAuth } from '@/hooks/useAuth';
 
 interface HeroProps {
   onCheckEligibility: (address: string) => void;
@@ -24,79 +23,31 @@ export function Hero({ onCheckEligibility }: HeroProps) {
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [isWideModal, setIsWideModal] = useState(false);
 
-  // Direct session and profile status check instead of useAuth
-  const [session, setSession] = useState<Session | null>(null);
-  const [userStatus, setUserStatus] = useState<string | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
-
-        setSession(session);
-
-        if (session?.user) {
-          // Fetch profile status directly
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('status')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          if (mounted && profile) {
-            setUserStatus((profile as { status: string }).status);
-          }
-        }
-      } catch (err) {
-        console.error('Hero: Auth check error:', err);
-      }
-      if (mounted) setCheckingAuth(false);
-    };
-
-    // Timeout to prevent hanging
-    const timeout = setTimeout(() => {
-      if (mounted) {
-        setCheckingAuth(false);
-      }
-    }, 3000);
-
-    checkAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-      setSession(session);
-
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('status')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (mounted && profile) {
-          setUserStatus((profile as { status: string }).status);
-        }
-      } else {
-        setUserStatus(null);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
-  }, []);
+  // Use centralized auth hook for synchronized session state
+  const { session, userStatus, isLoading: checkingAuth } = useAuth();
 
 
   const handleCheckEligibility = (addressToCheck: string) => {
-    // Bypass auth check - proceed directly to eligibility check
-    // The auth check is being aborted by Supabase, so we'll skip it for now
+    // Check if user is logged in
+    if (!session) {
+      setPendingAddress(addressToCheck);
+      setShowAuthModal(true);
+      return;
+    }
+
+    // Check if user is approved (active status)
+    if (userStatus === 'pending') {
+      setPendingAddress(addressToCheck);
+      setShowPendingModal(true);
+      return;
+    }
+
+    if (userStatus === 'denied') {
+      alert('Your account has been denied. Please contact support.');
+      return;
+    }
+
+    // User is logged in and approved - proceed
     onCheckEligibility(addressToCheck);
   };
 

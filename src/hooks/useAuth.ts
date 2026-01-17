@@ -16,13 +16,47 @@ interface UseAuthReturn {
   refreshProfile: () => Promise<void>;
 }
 
+// Helper function to get session from localStorage synchronously
+// This prevents race conditions when checking auth state before async check completes
+function getStoredSession(): Session | null {
+  const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
+  try {
+    const storedData = localStorage.getItem(storageKey);
+    if (!storedData) return null;
+
+    const parsed = JSON.parse(storedData);
+    if (parsed?.access_token && parsed?.user && parsed?.expires_at) {
+      // Check if token is expired
+      const expiresAt = new Date(parsed.expires_at * 1000);
+      if (expiresAt > new Date()) {
+        // Return a Session-like object
+        return {
+          access_token: parsed.access_token,
+          refresh_token: parsed.refresh_token,
+          expires_at: parsed.expires_at,
+          expires_in: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
+          token_type: parsed.token_type || 'bearer',
+          user: parsed.user,
+        } as Session;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not parse stored session:', e);
+  }
+  return null;
+}
+
 export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  // Initialize from localStorage synchronously to prevent race conditions
+  const initialSession = getStoredSession();
+  const [user, setUser] = useState<User | null>(initialSession?.user ?? null);
+  const [session, setSession] = useState<Session | null>(initialSession);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Only show loading if we have a localStorage session to verify
+  // If no localStorage session, we immediately know user is not logged in
+  const [isLoading, setIsLoading] = useState(!!initialSession);
 
   const checkAdminRole = useCallback(async (userId: string) => {
     try {
