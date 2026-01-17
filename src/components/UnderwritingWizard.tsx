@@ -63,7 +63,7 @@ export function UnderwritingWizard({ address, onBack }: UnderwritingWizardProps)
 
       {/* Header */}
       <header className="border-b border-border bg-white relative z-10">
-        <div className="container mx-auto px-4 py-4">
+        <div className="w-full px-[30px] py-4">
           <div className="grid grid-cols-3 items-center">
             {/* Left: StayFrank Logo */}
             <div className="text-2xl font-bold justify-self-start">

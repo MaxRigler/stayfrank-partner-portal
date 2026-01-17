@@ -259,7 +259,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                 <CardContent className="space-y-4">
                     {/* Owner Name */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
                             Full Name
                         </Label>
                         <Input
@@ -273,7 +273,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
                     {/* Email */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
                             Email Address
                         </Label>
                         <Input
@@ -287,7 +287,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
                     {/* Phone */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
                             Phone Number
                         </Label>
                         <Input
@@ -301,7 +301,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
                     {/* Credit Score */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
                             Estimated Credit Score
                         </Label>
                         <Select value={creditScores[index] || ''} onValueChange={(value) => updateCreditScore(index, value)}>
@@ -335,7 +335,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
             <CardContent className="space-y-6">
                 {/* Mortgage Current - Yes/No Toggle */}
                 <div className="space-y-3">
-                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
                         Current on mortgage (last 12 months)?
                     </Label>
                     <div className="flex gap-4">
@@ -360,7 +360,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
                 {/* Reason for Money - Multi-select */}
                 <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
                         Reason for Seeking Funds
                     </Label>
                     <MultiSelectReasons
@@ -372,7 +372,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
                 {/* Amount Looking For */}
                 <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1">
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
                         How Much Are You Looking For?
                     </Label>
                     <Select value={moneyAmount} onValueChange={setMoneyAmount}>
