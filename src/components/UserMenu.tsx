@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AuthModal } from "@/components/AuthModal";
 import { Badge } from "@/components/ui/badge";
-import { User, LogOut, ChevronDown, UserCog } from "lucide-react";
+import { User, LogOut, ChevronDown, UserCog, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UserMenuProps {
@@ -18,6 +18,25 @@ interface StoredUserData {
     email?: string;
     full_name?: string;
     company_name?: string;
+}
+
+// Helper to get cached admin status synchronously
+function getCachedAdminStatus(userId: string): boolean {
+    try {
+        const cached = localStorage.getItem(`admin_status_${userId}`);
+        return cached === 'true';
+    } catch {
+        return false;
+    }
+}
+
+// Helper to cache admin status
+function setCachedAdminStatus(userId: string, isAdmin: boolean): void {
+    try {
+        localStorage.setItem(`admin_status_${userId}`, isAdmin ? 'true' : 'false');
+    } catch {
+        // Ignore localStorage errors
+    }
 }
 
 function getStoredUser(): StoredUserData | null {
@@ -55,6 +74,8 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
     const storedUser = getStoredUser();
     const [user, setUser] = useState(storedUser);
     const [profile, setProfile] = useState<{ full_name: string | null; company_name: string | null; status: string | null } | null>(null);
+    // Initialize isAdmin from cached value for instant display
+    const [isAdmin, setIsAdmin] = useState(() => storedUser ? getCachedAdminStatus(storedUser.id) : false);
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
     const [showPendingModal, setShowPendingModal] = useState(false);
     const [isWideModal, setIsWideModal] = useState(false);
@@ -109,6 +130,64 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
 
         // Initial fetch
         fetchProfile();
+
+        return () => {
+            mounted = false;
+        };
+    }, [user, storedUser]);
+
+    // Separate useEffect for admin role check - runs independently
+    useEffect(() => {
+        let mounted = true;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        const checkAdminRole = async () => {
+            const currentUser = user || storedUser;
+            if (!currentUser?.id) return;
+
+            try {
+                console.log('UserMenu: Checking admin role for user:', currentUser.id);
+                const { data: roleData, error } = await supabase
+                    .from('user_roles')
+                    .select('role')
+                    .eq('user_id', currentUser.id)
+                    .eq('role', 'admin')
+                    .maybeSingle(); // Use maybeSingle to avoid error when no row found
+
+                if (error) {
+                    console.warn('UserMenu: Error checking admin role:', error.message);
+                    // Retry on AbortError
+                    if (retryCount < maxRetries && (error.message.includes('abort') || error.message.includes('AbortError'))) {
+                        retryCount++;
+                        console.log(`UserMenu: Retrying admin role check (${retryCount}/${maxRetries})...`);
+                        setTimeout(checkAdminRole, 1000);
+                        return;
+                    }
+                    return;
+                }
+
+                if (roleData && mounted) {
+                    console.log('UserMenu: User has admin role');
+                    setIsAdmin(true);
+                    setCachedAdminStatus(currentUser.id, true);
+                } else if (mounted) {
+                    console.log('UserMenu: User does not have admin role');
+                    setCachedAdminStatus(currentUser.id, false);
+                }
+            } catch (err: any) {
+                console.warn('UserMenu: Error checking admin role:', err?.message || err);
+                // Retry on AbortError
+                if (retryCount < maxRetries && (err?.name === 'AbortError' || err?.message?.includes('abort'))) {
+                    retryCount++;
+                    console.log(`UserMenu: Retrying admin role check after error (${retryCount}/${maxRetries})...`);
+                    setTimeout(checkAdminRole, 1000);
+                }
+            }
+        };
+
+        // Longer delay to avoid race conditions with auth and Strict Mode remounting
+        setTimeout(checkAdminRole, 1000);
 
         return () => {
             mounted = false;
@@ -240,6 +319,18 @@ export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
                             <UserCog className="w-4 h-4 text-gray-500" />
                             <span className="text-sm text-gray-700">Profile Settings</span>
                         </button>
+
+                        {/* Admin Dashboard - only shown for admins */}
+                        {isAdmin && (
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                onClick={() => handleNavigation('/admin')}
+                            >
+                                <Shield className="w-4 h-4 text-[hsl(var(--purple-medium))]" />
+                                <span className="text-sm text-gray-700">Admin Dashboard</span>
+                            </button>
+                        )}
 
                     </div>
 
