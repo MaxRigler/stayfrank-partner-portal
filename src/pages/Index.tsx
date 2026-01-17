@@ -5,56 +5,97 @@ import { useWizard } from '@/contexts/WizardContext';
 import { UserMenu } from '@/components/UserMenu';
 import { AuthModal } from '@/components/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
+
+// Helper function to get session from localStorage synchronously
+function getStoredSession(): Session | null {
+  const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
+  try {
+    const storedData = localStorage.getItem(storageKey);
+    if (!storedData) return null;
+
+    const parsed = JSON.parse(storedData);
+    if (parsed?.access_token && parsed?.user && parsed?.expires_at) {
+      // Check if token is expired
+      const expiresAt = new Date(parsed.expires_at * 1000);
+      if (expiresAt > new Date()) {
+        // Return a Session-like object
+        return {
+          access_token: parsed.access_token,
+          refresh_token: parsed.refresh_token,
+          expires_at: parsed.expires_at,
+          expires_in: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
+          token_type: parsed.token_type || 'bearer',
+          user: parsed.user,
+        } as Session;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not parse stored session:', e);
+  }
+  return null;
+}
 
 const Index = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [propertyAddress, setPropertyAddress] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { setWizardActive } = useWizard();
-  const [session, setSession] = useState<Session | null>(null);
-  const [checkingSession, setCheckingSession] = useState(true);
 
-  // Check for session directly from Supabase
+  // Initialize session from localStorage synchronously
+  const initialSession = getStoredSession();
+  const [session, setSession] = useState<Session | null>(initialSession);
+  const [checkingSession, setCheckingSession] = useState(!initialSession);
+
+  // Verify session with Supabase and listen for auth changes
   useEffect(() => {
     let mounted = true;
 
-    // Timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      if (mounted && checkingSession) {
-        console.log('Session check timed out, setting to logged out');
-        setCheckingSession(false);
-      }
-    }, 3000);
+    // If we already have a session from localStorage, verify it in the background
+    // but don't show loading state (checkingSession is already false)
+    console.log('Index: Initial session from localStorage:', initialSession ? 'found' : 'not found');
 
+    // Verify with Supabase (but don't block UI on this)
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        console.log('Session check complete:', session ? 'logged in' : 'not logged in');
+      .then(({ data: { session: supabaseSession } }) => {
+        console.log('Index: Supabase session check:', supabaseSession ? 'logged in' : 'not logged in');
         if (mounted) {
-          setSession(session);
+          setSession(supabaseSession);
           setCheckingSession(false);
         }
       })
       .catch((err) => {
-        console.error('Session check failed:', err);
-        if (mounted) {
-          setCheckingSession(false);
+        // AbortError is common with React's cleanup - don't treat it as logout
+        if (err?.name === 'AbortError') {
+          console.log('Index: Session check aborted (likely React remount), keeping current state');
+          // Keep the session from localStorage if we have it
+          if (mounted && !session) {
+            setCheckingSession(false);
+          }
+        } else {
+          console.error('Index: Session check failed:', err);
+          if (mounted) {
+            // Only clear session if we don't have one from localStorage
+            if (!initialSession) {
+              setSession(null);
+            }
+            setCheckingSession(false);
+          }
         }
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', _event, session ? 'logged in' : 'not logged in');
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      console.log('Index: Auth state changed:', _event, newSession ? 'logged in' : 'not logged in');
       if (mounted) {
-        setSession(session);
+        setSession(newSession);
         setCheckingSession(false);
       }
     });
 
     return () => {
       mounted = false;
-      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -105,7 +146,7 @@ const Index = () => {
     <>
       <Hero onCheckEligibility={handleCheckEligibility} />
 
-      {/* Always show account button in bottom right */}
+      {/* Account button in bottom right */}
       <div className="fixed bottom-6 right-6 z-50" style={{ pointerEvents: 'auto' }}>
         {checkingSession ? (
           // Loading state
@@ -113,21 +154,8 @@ const Index = () => {
             Loading...
           </div>
         ) : session ? (
-          // Logged in - show user info and sign out
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.clear();
-              sessionStorage.clear();
-              supabase.auth.signOut();
-              window.location.replace('/');
-            }}
-            className="bg-white border border-gray-300 shadow-lg rounded-lg px-4 py-3 hover:bg-gray-100 text-gray-900 flex items-center gap-2 cursor-pointer"
-          >
-            <User className="w-4 h-4" />
-            <span className="text-sm font-medium">{session.user.email?.split('@')[0]}</span>
-            <LogOut className="w-4 h-4 ml-2 text-red-500" />
-          </button>
+          // Logged in - show UserMenu with dropdown
+          <UserMenu />
         ) : (
           // Not logged in - show login button
           <button
