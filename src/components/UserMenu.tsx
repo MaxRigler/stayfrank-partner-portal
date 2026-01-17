@@ -4,11 +4,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AuthModal } from "@/components/AuthModal";
 import { Badge } from "@/components/ui/badge";
-import { User, LogOut, ChevronDown, UserCog, LayoutGrid, Upload } from "lucide-react";
+import { User, LogOut, ChevronDown, UserCog } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface UserMenuProps {
     className?: string;
+    variant?: 'default' | 'light';
 }
 
 // Helper function to get full user data from localStorage synchronously
@@ -47,7 +48,7 @@ function getStoredUser(): StoredUserData | null {
     return null;
 }
 
-export function UserMenu({ className }: UserMenuProps) {
+export function UserMenu({ className, variant = 'default' }: UserMenuProps) {
     const navigate = useNavigate();
 
     // Get user from localStorage synchronously on first render
@@ -185,25 +186,27 @@ export function UserMenu({ className }: UserMenuProps) {
         <>
             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
-                    {/* Styled button matching Equity Advance design - purple theme */}
+                    {/* Styled button - supports purple (default) and light (white) variants */}
                     <button
                         type="button"
                         className={`
                             flex items-center gap-3 px-4 py-3
-                            bg-[hsl(var(--purple-medium))] hover:bg-[hsl(var(--purple-deep))]
-                            text-white rounded-lg shadow-lg
                             transition-all duration-200 cursor-pointer
+                            ${variant === 'light'
+                                ? 'bg-transparent hover:bg-gray-50 text-gray-800'
+                                : 'bg-[hsl(var(--purple-medium))] hover:bg-[hsl(var(--purple-deep))] text-white rounded-lg shadow-lg'
+                            }
                             ${className}
                         `}
                     >
-                        <User className="w-5 h-5 opacity-80" />
+                        <User className={`w-5 h-5 ${variant === 'light' ? 'text-[hsl(var(--purple-medium))]' : 'opacity-80'}`} />
                         <div className="flex flex-col items-start text-left leading-tight">
                             <span className="text-sm font-semibold">{displayName}</span>
                             {displayCompany && (
-                                <span className="text-xs opacity-70">{displayCompany}</span>
+                                <span className={`text-xs ${variant === 'light' ? 'text-gray-500' : 'opacity-70'}`}>{displayCompany}</span>
                             )}
                         </div>
-                        <ChevronDown className="w-4 h-4 opacity-60 ml-1" />
+                        <ChevronDown className={`w-4 h-4 ml-1 ${variant === 'light' ? 'text-gray-400' : 'opacity-60'}`} />
                     </button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -238,23 +241,6 @@ export function UserMenu({ className }: UserMenuProps) {
                             <span className="text-sm text-gray-700">Profile Settings</span>
                         </button>
 
-                        <button
-                            type="button"
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
-                            onClick={() => handleNavigation('/submissions')}
-                        >
-                            <LayoutGrid className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm text-gray-700">View Pipeline</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
-                            onClick={() => handleNavigation('/bulk-prequal')}
-                        >
-                            <Upload className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm text-gray-700">Bulk PreQual</span>
-                        </button>
                     </div>
 
                     {/* Sign out section */}
