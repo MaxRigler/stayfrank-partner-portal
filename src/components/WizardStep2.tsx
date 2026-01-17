@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, Mail, Phone, CreditCard, DollarSign, Calendar, HelpCircle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { User, Mail, Phone, CreditCard, DollarSign, Calendar, HelpCircle, MessageSquare, ChevronDown, Check } from 'lucide-react';
 
 interface WizardStep2Props {
     ownerNames: string[];
@@ -18,8 +19,9 @@ export interface PersonalDetailsData {
     ownerPhones: string[];
     ownerCreditScores: string[];
     mortgageCurrent: boolean;
-    moneyReason: string;
+    moneyReasons: string[];
     moneyAmount: string;
+    helpfulContext: string;
 }
 
 const CREDIT_SCORE_OPTIONS = [
@@ -35,6 +37,7 @@ const MONEY_REASON_OPTIONS = [
     { value: 'health_issues', label: 'Health Issues' },
     { value: 'unemployed', label: 'Unemployed' },
     { value: 'life_events', label: 'Life Events' },
+    { value: 'other', label: 'Other' },
 ];
 
 const MONEY_AMOUNT_OPTIONS = [
@@ -43,6 +46,97 @@ const MONEY_AMOUNT_OPTIONS = [
     { value: '50k_100k', label: '$50K - $100K' },
     { value: '100k_plus', label: '$100K+' },
 ];
+
+// Multi-select dropdown component for reasons
+function MultiSelectReasons({
+    selectedReasons,
+    onToggleReason,
+}: {
+    selectedReasons: string[];
+    onToggleReason: (value: string) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const getDisplayText = () => {
+        if (selectedReasons.length === 0) {
+            return 'Select reasons (multiple allowed)';
+        }
+        if (selectedReasons.length === 1) {
+            const option = MONEY_REASON_OPTIONS.find(o => o.value === selectedReasons[0]);
+            return option?.label || selectedReasons[0];
+        }
+        return `${selectedReasons.length} reasons selected`;
+    };
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex h-10 w-full items-center justify-between rounded-md bg-background border-2 border-accent/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                <span className={selectedReasons.length === 0 ? 'text-muted-foreground' : 'text-foreground'}>
+                    {getDisplayText()}
+                </span>
+                <ChevronDown className={`h-4 w-4 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-2 shadow-lg">
+                    <p className="text-xs text-muted-foreground mb-2 px-1">
+                        Select all that apply:
+                    </p>
+                    <div className="space-y-1">
+                        {MONEY_REASON_OPTIONS.map((option) => {
+                            const isSelected = selectedReasons.includes(option.value);
+                            return (
+                                <div
+                                    key={option.value}
+                                    onClick={() => onToggleReason(option.value)}
+                                    className={`flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors ${isSelected
+                                        ? 'bg-accent/20 text-foreground'
+                                        : 'hover:bg-accent/10 text-muted-foreground'
+                                        }`}
+                                >
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected
+                                        ? 'bg-accent border-accent'
+                                        : 'border-muted-foreground/50'
+                                        }`}>
+                                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                    <span className="text-sm">{option.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="mt-2 pt-2 border-t">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="success"
+                            className="w-full"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            Confirm
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props) {
     // Initialize state based on number of owners
@@ -57,8 +151,17 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
     // Shared fields
     const [mortgageCurrent, setMortgageCurrent] = useState<boolean | null>(null);
-    const [moneyReason, setMoneyReason] = useState('');
+    const [moneyReasons, setMoneyReasons] = useState<string[]>([]);
     const [moneyAmount, setMoneyAmount] = useState('');
+    const [helpfulContext, setHelpfulContext] = useState('');
+
+    const toggleReason = (value: string) => {
+        setMoneyReasons(prev =>
+            prev.includes(value)
+                ? prev.filter(r => r !== value)
+                : [...prev, value]
+        );
+    };
 
     const updateName = (index: number, value: string) => {
         const newNames = [...names];
@@ -106,7 +209,7 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
         }
         // Check shared fields
         if (mortgageCurrent === null) return false;
-        if (!moneyReason) return false;
+        if (moneyReasons.length === 0) return false;
         if (!moneyAmount) return false;
         return true;
     };
@@ -119,8 +222,9 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                 ownerPhones: phones,
                 ownerCreditScores: creditScores,
                 mortgageCurrent: mortgageCurrent!,
-                moneyReason,
+                moneyReasons,
                 moneyAmount,
+                helpfulContext,
             });
         }
     };
@@ -206,6 +310,91 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
         );
     };
 
+    const renderFinancialDetails = () => (
+        <div className="p-4 bg-secondary rounded-xl border border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-accent" />
+                Financial Details
+            </h3>
+
+            <div className="space-y-4">
+                {/* Mortgage Current - Yes/No Toggle */}
+                <div className="space-y-2">
+                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-accent" />
+                        Have you been current on your mortgage for the last 12 months?
+                    </Label>
+                    <div className="flex gap-3">
+                        <Button
+                            type="button"
+                            variant={mortgageCurrent === true ? 'default' : 'outline'}
+                            className={`flex-1 ${mortgageCurrent === true ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
+                            onClick={() => setMortgageCurrent(true)}
+                        >
+                            Yes
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={mortgageCurrent === false ? 'default' : 'outline'}
+                            className={`flex-1 ${mortgageCurrent === false ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
+                            onClick={() => setMortgageCurrent(false)}
+                        >
+                            No
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Reason for Money - Multi-select */}
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
+                        <HelpCircle className="w-3.5 h-3.5 text-accent" />
+                        Reason for Seeking Funds
+                    </Label>
+                    <MultiSelectReasons
+                        selectedReasons={moneyReasons}
+                        onToggleReason={toggleReason}
+                    />
+                </div>
+
+                {/* Amount Looking For */}
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-accent" />
+                        How Much Are You Looking For?
+                    </Label>
+                    <Select value={moneyAmount} onValueChange={setMoneyAmount}>
+                        <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
+                            <SelectValue placeholder="Select amount range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {MONEY_AMOUNT_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderHelpfulContextSection = () => (
+        <div className="p-4 bg-secondary rounded-xl border border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-accent" />
+                Helpful Context for StayFrank
+            </h3>
+
+            <Textarea
+                value={helpfulContext}
+                onChange={(e) => setHelpfulContext(e.target.value)}
+                placeholder="E.g., homeowner's timeline, special circumstances, additional notes..."
+                className="bg-background border-2 border-accent/50 focus:border-accent min-h-[80px] resize-none"
+            />
+        </div>
+    );
+
     return (
         <div className="space-y-4">
             {/* Desktop Layout */}
@@ -218,166 +407,31 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                         </div>
 
                         {/* Shared Fields Card */}
-                        <div className="p-4 bg-secondary rounded-xl border border-border mb-4">
-                            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                                <DollarSign className="w-4 h-4 text-accent" />
-                                Financial Details
-                            </h3>
+                        <div className="mb-4">
+                            {renderFinancialDetails()}
+                        </div>
 
-                            <div className="space-y-4">
-                                {/* Mortgage Current - Yes/No Toggle */}
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                        <Calendar className="w-3.5 h-3.5 text-accent" />
-                                        Have you been current on your mortgage for the last 12 months?
-                                    </Label>
-                                    <div className="flex gap-3">
-                                        <Button
-                                            type="button"
-                                            variant={mortgageCurrent === true ? 'default' : 'outline'}
-                                            className={`flex-1 ${mortgageCurrent === true ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
-                                            onClick={() => setMortgageCurrent(true)}
-                                        >
-                                            Yes
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant={mortgageCurrent === false ? 'default' : 'outline'}
-                                            className={`flex-1 ${mortgageCurrent === false ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
-                                            onClick={() => setMortgageCurrent(false)}
-                                        >
-                                            No
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {/* Two column layout for dropdowns */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    {/* Reason for Money */}
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                            <HelpCircle className="w-3.5 h-3.5 text-accent" />
-                                            Reason for Seeking Funds
-                                        </Label>
-                                        <Select value={moneyReason} onValueChange={setMoneyReason}>
-                                            <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
-                                                <SelectValue placeholder="Select a reason" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {MONEY_REASON_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Amount Looking For */}
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                            <DollarSign className="w-3.5 h-3.5 text-accent" />
-                                            How Much Are You Looking For?
-                                        </Label>
-                                        <Select value={moneyAmount} onValueChange={setMoneyAmount}>
-                                            <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
-                                                <SelectValue placeholder="Select amount range" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {MONEY_AMOUNT_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </div>
+                        {/* Helpful Context Section */}
+                        <div className="mb-4">
+                            {renderHelpfulContextSection()}
                         </div>
                     </>
                 ) : (
                     /* Single owner: homeowner details on left, financial details on right */
-                    <div className="grid grid-cols-2 gap-6 mb-4">
-                        {/* Left Column - Homeowner Details */}
-                        {renderOwnerSection(0)}
+                    <>
+                        <div className="grid grid-cols-2 gap-6 mb-4">
+                            {/* Left Column - Homeowner Details */}
+                            {renderOwnerSection(0)}
 
-                        {/* Right Column - Financial Details */}
-                        <div className="p-4 bg-secondary rounded-xl border border-border">
-                            <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                                <DollarSign className="w-4 h-4 text-accent" />
-                                Financial Details
-                            </h3>
-
-                            <div className="space-y-4">
-                                {/* Mortgage Current - Yes/No Toggle */}
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                        <Calendar className="w-3.5 h-3.5 text-accent" />
-                                        Have you been current on your mortgage for the last 12 months?
-                                    </Label>
-                                    <div className="flex gap-3">
-                                        <Button
-                                            type="button"
-                                            variant={mortgageCurrent === true ? 'default' : 'outline'}
-                                            className={`flex-1 ${mortgageCurrent === true ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
-                                            onClick={() => setMortgageCurrent(true)}
-                                        >
-                                            Yes
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant={mortgageCurrent === false ? 'default' : 'outline'}
-                                            className={`flex-1 ${mortgageCurrent === false ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
-                                            onClick={() => setMortgageCurrent(false)}
-                                        >
-                                            No
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {/* Reason for Money */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                        <HelpCircle className="w-3.5 h-3.5 text-accent" />
-                                        Reason for Seeking Funds
-                                    </Label>
-                                    <Select value={moneyReason} onValueChange={setMoneyReason}>
-                                        <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
-                                            <SelectValue placeholder="Select a reason" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {MONEY_REASON_OPTIONS.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Amount Looking For */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                        <DollarSign className="w-3.5 h-3.5 text-accent" />
-                                        How Much Are You Looking For?
-                                    </Label>
-                                    <Select value={moneyAmount} onValueChange={setMoneyAmount}>
-                                        <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
-                                            <SelectValue placeholder="Select amount range" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {MONEY_AMOUNT_OPTIONS.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
+                            {/* Right Column - Financial Details */}
+                            {renderFinancialDetails()}
                         </div>
-                    </div>
+
+                        {/* Helpful Context Section - Full width below */}
+                        <div className="mb-4">
+                            {renderHelpfulContextSection()}
+                        </div>
+                    </>
                 )}
             </div>
 
@@ -386,81 +440,11 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                 {/* Owner sections - stacked */}
                 {Array.from({ length: ownerCount }).map((_, i) => renderOwnerSection(i))}
 
-                {/* Shared Fields Card */}
-                <div className="p-4 bg-secondary rounded-xl border border-border">
-                    <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-accent" />
-                        Financial Details
-                    </h3>
+                {/* Financial Details Card */}
+                {renderFinancialDetails()}
 
-                    <div className="space-y-4">
-                        {/* Mortgage Current */}
-                        <div className="space-y-2">
-                            <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5 text-accent" />
-                                Current on mortgage (last 12 months)?
-                            </Label>
-                            <div className="flex gap-3">
-                                <Button
-                                    type="button"
-                                    variant={mortgageCurrent === true ? 'default' : 'outline'}
-                                    className={`flex-1 ${mortgageCurrent === true ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
-                                    onClick={() => setMortgageCurrent(true)}
-                                >
-                                    Yes
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={mortgageCurrent === false ? 'default' : 'outline'}
-                                    className={`flex-1 ${mortgageCurrent === false ? 'bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white' : ''}`}
-                                    onClick={() => setMortgageCurrent(false)}
-                                >
-                                    No
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Reason for Money */}
-                        <div className="space-y-1.5">
-                            <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                <HelpCircle className="w-3.5 h-3.5 text-accent" />
-                                Reason for Seeking Funds
-                            </Label>
-                            <Select value={moneyReason} onValueChange={setMoneyReason}>
-                                <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
-                                    <SelectValue placeholder="Select a reason" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {MONEY_REASON_OPTIONS.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Amount Looking For */}
-                        <div className="space-y-1.5">
-                            <Label className="text-xs text-foreground/70 font-medium flex items-center gap-1.5">
-                                <DollarSign className="w-3.5 h-3.5 text-accent" />
-                                How Much Are You Looking For?
-                            </Label>
-                            <Select value={moneyAmount} onValueChange={setMoneyAmount}>
-                                <SelectTrigger className="bg-background border-2 border-accent/50 focus:border-accent">
-                                    <SelectValue placeholder="Select amount range" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {MONEY_AMOUNT_OPTIONS.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </div>
+                {/* Helpful Context Section */}
+                {renderHelpfulContextSection()}
             </div>
 
             {/* Action Buttons */}

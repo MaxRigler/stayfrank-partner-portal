@@ -72,6 +72,8 @@ export type Database = {
           owner_credit_scores: string[] | null
           mortgage_current: boolean | null
           money_reason: string | null
+          money_reasons: string[] | null
+          helpful_context: string | null
           money_amount: string | null
           // Eligibility
           sl_eligible: boolean
@@ -104,6 +106,8 @@ export type Database = {
           owner_credit_scores?: string[] | null
           mortgage_current?: boolean | null
           money_reason?: string | null
+          money_reasons?: string[] | null
+          helpful_context?: string | null
           money_amount?: string | null
           // Eligibility
           sl_eligible?: boolean
@@ -136,6 +140,8 @@ export type Database = {
           owner_credit_scores?: string[] | null
           mortgage_current?: boolean | null
           money_reason?: string | null
+          money_reasons?: string[] | null
+          helpful_context?: string | null
           money_amount?: string | null
           // Eligibility
           sl_eligible?: boolean

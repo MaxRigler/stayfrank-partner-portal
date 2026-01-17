@@ -103,7 +103,8 @@ export function DualOfferDisplay({
           owner_phones: personalDetails?.ownerPhones || [],
           owner_credit_scores: personalDetails?.ownerCreditScores || [],
           mortgage_current: personalDetails?.mortgageCurrent ?? null,
-          money_reason: personalDetails?.moneyReason || null,
+          money_reasons: personalDetails?.moneyReasons || [],
+          helpful_context: personalDetails?.helpfulContext || null,
           money_amount: personalDetails?.moneyAmount || null,
         })
         .select('id')
