@@ -19,6 +19,9 @@ interface DualOfferDisplayProps {
   ownershipType: string;
   currentCLTV: number;
   ownerNames?: string[];
+  isEmployed?: boolean | null;
+  hasLatePayments?: boolean | null;
+  isCreditScoreLow?: boolean | null;
   personalDetails?: PersonalDetailsData;
   onBack: () => void;
   onReset: () => void;
@@ -52,6 +55,9 @@ export function DualOfferDisplay({
   ownershipType,
   currentCLTV,
   ownerNames,
+  isEmployed,
+  hasLatePayments,
+  isCreditScoreLow,
   personalDetails,
   onBack,
   onReset
@@ -99,8 +105,8 @@ export function DualOfferDisplay({
           // Personal Details
           owner_emails: personalDetails?.ownerEmails || [],
           owner_phones: personalDetails?.ownerPhones || [],
-          owner_credit_scores: personalDetails?.ownerCreditScores || [],
-          mortgage_current: personalDetails?.mortgageCurrent ?? null,
+          owner_credit_scores: personalDetails?.ownerCreditScores || (isCreditScoreLow ? ['Below 620'] : ['620+']),
+          mortgage_current: personalDetails?.mortgageCurrent ?? (hasLatePayments !== undefined && hasLatePayments !== null ? !hasLatePayments : null),
           money_reasons: personalDetails?.moneyReasons || [],
           helpful_context: personalDetails?.helpfulContext || null,
           money_amount: personalDetails?.moneyAmount || null,
