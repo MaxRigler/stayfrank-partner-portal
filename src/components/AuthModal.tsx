@@ -60,6 +60,33 @@ export function AuthModal({ onLoginSuccess, disclaimerMessage, initialView = 'lo
     setIsLoading(false);
 
     if (error) {
+      // Check if the error is about email not being confirmed
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        // Automatically resend confirmation email
+        const { error: resendError } = await supabase.auth.resend({
+          type: 'signup',
+          email: loginEmail,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          },
+        });
+
+        if (resendError) {
+          toast({
+            title: "Login Failed",
+            description: "Your email is not verified. We couldn't resend the confirmation email. Please try again later.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Email Verification Required",
+            description: "We've sent a new confirmation email. Please check your inbox and click the link to verify your account.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
       toast({
         title: "Login Failed",
         description: error.message,

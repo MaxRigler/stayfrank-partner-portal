@@ -187,12 +187,58 @@ export default function AdminDashboard() {
   const updateStatus = async (profileId: string, newStatus: UserStatus, isOfficer = false, parentId?: string) => {
     setUpdating(profileId);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: newStatus })
-        .eq('id', profileId);
+      console.log('AdminDashboard: Updating user status via REST API...', { profileId, newStatus });
 
-      if (error) throw error;
+      // Get the auth token from localStorage
+      const storageKey = 'sb-ximkveundgebbvbgacfu-auth-token';
+      const storedData = localStorage.getItem(storageKey);
+      let accessToken = '';
+
+      if (storedData) {
+        try {
+          const parsed = JSON.parse(storedData);
+          accessToken = parsed?.access_token || '';
+        } catch {
+          console.warn('AdminDashboard: Could not parse auth token');
+        }
+      }
+
+      if (!accessToken) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+
+      // Use direct REST API call to bypass Supabase client issue
+      const response = await fetch(
+        `https://ximkveundgebbvbgacfu.supabase.co/rest/v1/profiles?id=eq.${profileId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpbWt2ZXVuZGdlYmJ2YmdhY2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODA2MzQsImV4cCI6MjA4NDE1NjYzNH0.7UGEMBH1SCibG3XavZ1G3cdxJhky0_1aw9Hh1pU3JdQ',
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('AdminDashboard: REST API update error:', response.status, errorText);
+
+        // Provide more specific error messages
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please refresh the page and try again.');
+        } else if (response.status === 403) {
+          throw new Error('You do not have permission to update user status. Please ensure you have admin privileges.');
+        } else if (response.status === 404) {
+          throw new Error('User profile not found.');
+        } else {
+          throw new Error(`Server error (${response.status}): ${errorText || 'Unknown error'}`);
+        }
+      }
+
+      console.log('AdminDashboard: User status updated successfully');
 
       if (isOfficer && parentId) {
         // Update officer in local state
@@ -213,11 +259,11 @@ export default function AdminDashboard() {
         title: 'Success',
         description: `User ${newStatus === 'active' ? 'approved' : 'denied'} successfully`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating status:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update user status',
+        description: error?.message || 'Failed to update user status',
         variant: 'destructive',
       });
     } finally {

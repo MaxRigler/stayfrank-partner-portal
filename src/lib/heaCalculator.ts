@@ -265,6 +265,10 @@ export function checkDualProductEligibility(
   if (!SL_ELIGIBLE_PROPERTY_TYPES.includes(propertyType)) {
     slReasons.push('Only Single Family homes are eligible for Sale-Leaseback');
   }
+  // Ownership type check - LLCs, Corporations, and Partnerships are not eligible for Sale-Leaseback
+  if (INELIGIBLE_OWNERSHIP_TYPES.includes(ownershipType)) {
+    slReasons.push(`Properties owned by ${ownershipType} are not eligible for Sale-Leaseback`);
+  }
   if (homeValue < SL_MIN_HOME_VALUE) {
     slReasons.push(`Property value must be at least $${SL_MIN_HOME_VALUE.toLocaleString()} for Sale-Leaseback`);
   }
