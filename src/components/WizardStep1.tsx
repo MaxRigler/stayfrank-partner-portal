@@ -649,7 +649,7 @@ export function WizardStep1({
                   <DollarSign className="w-4 h-4" />
                   <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Are They Currently Employed?</span>
                 </div>
-                <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
+                <div className={`flex h-12 w-full bg-muted/20 rounded-md p-1 border transition-all ${isEmployed === null ? 'animate-subtle-attention' : ''}`}>
                   <button
                     onClick={() => setIsEmployed(true)}
                     className={`flex-1 rounded-sm text-sm font-medium transition-all ${isEmployed === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
@@ -671,7 +671,7 @@ export function WizardStep1({
                   <Calendar className="w-4 h-4" />
                   <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Mortgage Lates last 12 months?</span>
                 </div>
-                <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
+                <div className={`flex h-12 w-full bg-muted/20 rounded-md p-1 border transition-all ${hasLatePayments === null ? 'animate-subtle-attention' : ''}`}>
                   <button
                     onClick={() => setHasLatePayments(true)}
                     className={`flex-1 rounded-sm text-sm font-medium transition-all ${hasLatePayments === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
@@ -693,7 +693,7 @@ export function WizardStep1({
                   <TrendingUp className="w-4 h-4" />
                   <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Credit Score Below 620?</span>
                 </div>
-                <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
+                <div className={`flex h-12 w-full bg-muted/20 rounded-md p-1 border transition-all ${isCreditScoreLow === null ? 'animate-subtle-attention' : ''}`}>
                   <button
                     onClick={() => setIsCreditScoreLow(true)}
                     className={`flex-1 rounded-sm text-sm font-medium transition-all ${isCreditScoreLow === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
@@ -893,7 +893,7 @@ export function WizardStep1({
                 <DollarSign className="w-3.5 h-3.5 text-accent" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Are They Currently Employed?</span>
               </div>
-              <div className="flex h-11 w-full bg-muted/20 rounded-md p-1 border">
+              <div className={`flex h-11 w-full bg-muted/20 rounded-md p-1 border transition-all ${isEmployed === null ? 'animate-subtle-attention' : ''}`}>
                 <button
                   onClick={() => setIsEmployed(true)}
                   className={`flex-1 rounded-sm text-sm font-medium transition-all ${isEmployed === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
@@ -915,7 +915,7 @@ export function WizardStep1({
                 <Calendar className="w-3.5 h-3.5 text-accent" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Mortgage Lates last 12 months?</span>
               </div>
-              <div className="flex h-11 w-full bg-muted/20 rounded-md p-1 border">
+              <div className={`flex h-11 w-full bg-muted/20 rounded-md p-1 border transition-all ${hasLatePayments === null ? 'animate-subtle-attention' : ''}`}>
                 <button
                   onClick={() => setHasLatePayments(true)}
                   className={`flex-1 rounded-sm text-sm font-medium transition-all ${hasLatePayments === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
@@ -937,7 +937,7 @@ export function WizardStep1({
                 <TrendingUp className="w-3.5 h-3.5 text-accent" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Credit Score Below 620?</span>
               </div>
-              <div className="flex h-11 w-full bg-muted/20 rounded-md p-1 border">
+              <div className={`flex h-11 w-full bg-muted/20 rounded-md p-1 border transition-all ${isCreditScoreLow === null ? 'animate-subtle-attention' : ''}`}>
                 <button
                   onClick={() => setIsCreditScoreLow(true)}
                   className={`flex-1 rounded-sm text-sm font-medium transition-all ${isCreditScoreLow === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
