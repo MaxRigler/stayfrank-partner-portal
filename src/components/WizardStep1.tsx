@@ -647,7 +647,7 @@ export function WizardStep1({
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <DollarSign className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Are They Currently Employed?</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Are They Currently Employed?</span>
                 </div>
                 <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
                   <button
@@ -669,7 +669,7 @@ export function WizardStep1({
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Mortgage Lates last 12 months?</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Mortgage Lates last 12 months?</span>
                 </div>
                 <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
                   <button
@@ -691,7 +691,7 @@ export function WizardStep1({
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <TrendingUp className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Credit Score Below 620?</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">Credit Score Below 620?</span>
                 </div>
                 <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
                   <button
