@@ -22,6 +22,9 @@ interface WizardStep1Props {
     ownershipType: string;
     currentCLTV: number;
     ownerNames: string[];
+    isEmployed: boolean | null;
+    hasLatePayments: boolean | null;
+    isCreditScoreLow: boolean | null;
   }) => void;
   onBack: () => void;
 }
@@ -229,6 +232,11 @@ export function WizardStep1({
   const [propertyOwner, setPropertyOwner] = useState('');
   const [mortgageBalance, setMortgageBalance] = useState(0);
 
+  // Qualifying Questions State
+  const [isEmployed, setIsEmployed] = useState<boolean | null>(null);
+  const [hasLatePayments, setHasLatePayments] = useState<boolean | null>(null);
+  const [isCreditScoreLow, setIsCreditScoreLow] = useState<boolean | null>(null);
+
   // Payoff calculator state
   const [showPayoffCalculator, setShowPayoffCalculator] = useState(false);
   const [isHidingQualification, setIsHidingQualification] = useState(false);
@@ -410,7 +418,11 @@ export function WizardStep1({
         propertyType,
         ownershipType,
         currentCLTV,
-        ownerNames: ownerNamesArray
+
+        ownerNames: ownerNamesArray,
+        isEmployed,
+        hasLatePayments,
+        isCreditScoreLow
       });
     }
   };
@@ -487,7 +499,74 @@ export function WizardStep1({
           </CardContent>
         </Card>
 
-        {/* Two Column Sliders - Property Value & Mortgage Balance */}
+        {/* Property Details Dropdowns (Moved Up) */}
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-3 gap-8">
+              {/* State */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">State</span>
+                </div>
+                <Select value={state} onValueChange={setState}>
+                  <SelectTrigger className={`bg-background h-12 text-base ${state ? isStateEligible(state) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                    <SelectValue placeholder="Select State">{state ? state : 'Select State'}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {ALL_STATES.map(s => (
+                      <SelectItem key={s.abbr} value={s.abbr} className={isStateEligible(s.abbr) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Property Type */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Building className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Property Type</span>
+                </div>
+                <Select value={propertyType} onValueChange={setPropertyType}>
+                  <SelectTrigger className={`bg-background h-12 text-base ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                    <SelectValue placeholder="Select Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPERTY_TYPES.map(type => (
+                      <SelectItem key={type} value={type} className={isPropertyTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Ownership Type */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <User className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Ownership</span>
+                </div>
+                <Select value={ownershipType} onValueChange={setOwnershipType}>
+                  <SelectTrigger className={`bg-background h-12 text-base ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                    <SelectValue placeholder="Select Ownership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OWNERSHIP_TYPES.map(type => (
+                      <SelectItem key={type} value={type} className={isOwnershipTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Two Column Sliders - Property Value & Mortgage Balance (Moved Down) */}
         <div className="grid grid-cols-2 gap-6">
           {/* Confirm Property Value */}
           <Card className="border-t-4 border-t-emerald-500 shadow-sm hover:shadow-md transition-shadow">
@@ -560,68 +639,74 @@ export function WizardStep1({
           </Card>
         </div>
 
-        {/* Property Details Dropdowns */}
+        {/* New Qualifying Questions */}
         <Card className="shadow-sm">
           <CardContent className="p-6">
             <div className="grid grid-cols-3 gap-8">
-              {/* State */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <MapPin className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">State</span>
+              {/* Employment */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <DollarSign className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Are They Currently Employed?</span>
                 </div>
-                <Select value={state} onValueChange={setState}>
-                  <SelectTrigger className={`bg-background h-12 text-base ${state ? isStateEligible(state) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
-                    <SelectValue placeholder="Select State">{state ? state : 'Select State'}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {ALL_STATES.map(s => (
-                      <SelectItem key={s.abbr} value={s.abbr} className={isStateEligible(s.abbr) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
+                  <button
+                    onClick={() => setIsEmployed(true)}
+                    className={`flex-1 rounded-sm text-sm font-medium transition-all ${isEmployed === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setIsEmployed(false)}
+                    className={`flex-1 rounded-sm text-sm font-medium transition-all ${isEmployed === false ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                  >
+                    No
+                  </button>
+                </div>
               </div>
 
-              {/* Property Type */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Building className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Property Type</span>
+              {/* Mortgage Lates */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Mortgage Lates last 12 months?</span>
                 </div>
-                <Select value={propertyType} onValueChange={setPropertyType}>
-                  <SelectTrigger className={`bg-background h-12 text-base ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
-                    <SelectValue placeholder="Select Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROPERTY_TYPES.map(type => (
-                      <SelectItem key={type} value={type} className={isPropertyTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
+                  <button
+                    onClick={() => setHasLatePayments(true)}
+                    className={`flex-1 rounded-sm text-sm font-medium transition-all ${hasLatePayments === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setHasLatePayments(false)}
+                    className={`flex-1 rounded-sm text-sm font-medium transition-all ${hasLatePayments === false ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                  >
+                    No
+                  </button>
+                </div>
               </div>
 
-              {/* Ownership Type */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <User className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Ownership</span>
+              {/* Credit Score */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <TrendingUp className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Credit Score Below 620?</span>
                 </div>
-                <Select value={ownershipType} onValueChange={setOwnershipType}>
-                  <SelectTrigger className={`bg-background h-12 text-base ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
-                    <SelectValue placeholder="Select Ownership" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OWNERSHIP_TYPES.map(type => (
-                      <SelectItem key={type} value={type} className={isOwnershipTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex h-12 w-full bg-muted/20 rounded-md p-1 border">
+                  <button
+                    onClick={() => setIsCreditScoreLow(true)}
+                    className={`flex-1 rounded-sm text-sm font-medium transition-all ${isCreditScoreLow === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setIsCreditScoreLow(false)}
+                    className={`flex-1 rounded-sm text-sm font-medium transition-all ${isCreditScoreLow === false ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                  >
+                    No
+                  </button>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -664,7 +749,72 @@ export function WizardStep1({
           </CardContent>
         </Card>
 
-        {/* Confirm Property Value */}
+        {/* Property Details Dropdowns (Moved Up) */}
+        <Card className="shadow-sm">
+          <CardContent className="p-5 space-y-5">
+            {/* State */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">State</span>
+              </div>
+              <Select value={state} onValueChange={setState}>
+                <SelectTrigger className={`bg-background h-11 text-sm ${state ? isStateEligible(state) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                  <SelectValue placeholder="Select State">{state ? state : 'Select State'}</SelectValue>
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {ALL_STATES.map(s => (
+                    <SelectItem key={s.abbr} value={s.abbr} className={isStateEligible(s.abbr) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Property Type */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Building className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Property Type</span>
+              </div>
+              <Select value={propertyType} onValueChange={setPropertyType}>
+                <SelectTrigger className={`bg-background h-11 text-sm ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                  <SelectValue placeholder="Select Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROPERTY_TYPES.map(type => (
+                    <SelectItem key={type} value={type} className={isPropertyTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Ownership Type */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <User className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Ownership</span>
+              </div>
+              <Select value={ownershipType} onValueChange={setOwnershipType}>
+                <SelectTrigger className={`bg-background h-11 text-sm ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
+                  <SelectValue placeholder="Select Ownership" />
+                </SelectTrigger>
+                <SelectContent>
+                  {OWNERSHIP_TYPES.map(type => (
+                    <SelectItem key={type} value={type} className={isOwnershipTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Confirm Property Value (Moved Down) */}
         <Card className="border-t-4 border-t-emerald-500 shadow-sm">
           <CardHeader className="pb-2 text-center pt-4">
             <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Property Value</CardTitle>
@@ -734,67 +884,73 @@ export function WizardStep1({
           </CardContent>
         </Card>
 
-        {/* Property Details Dropdowns */}
+        {/* New Qualifying Questions (Mobile) */}
         <Card className="shadow-sm">
-          <CardContent className="p-5 space-y-5">
-            {/* State */}
-            <div className="space-y-1.5">
+          <CardContent className="p-5 space-y-6">
+            {/* Employment */}
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="w-3.5 h-3.5 text-accent" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">State</span>
+                <DollarSign className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Are They Currently Employed?</span>
               </div>
-              <Select value={state} onValueChange={setState}>
-                <SelectTrigger className={`bg-background h-11 text-sm ${state ? isStateEligible(state) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
-                  <SelectValue placeholder="Select State">{state ? state : 'Select State'}</SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {ALL_STATES.map(s => (
-                    <SelectItem key={s.abbr} value={s.abbr} className={isStateEligible(s.abbr) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex h-11 w-full bg-muted/20 rounded-md p-1 border">
+                <button
+                  onClick={() => setIsEmployed(true)}
+                  className={`flex-1 rounded-sm text-sm font-medium transition-all ${isEmployed === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setIsEmployed(false)}
+                  className={`flex-1 rounded-sm text-sm font-medium transition-all ${isEmployed === false ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                >
+                  No
+                </button>
+              </div>
             </div>
 
-            {/* Property Type */}
-            <div className="space-y-1.5">
+            {/* Mortgage Lates */}
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Building className="w-3.5 h-3.5 text-accent" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Property Type</span>
+                <Calendar className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Mortgage Lates last 12 months?</span>
               </div>
-              <Select value={propertyType} onValueChange={setPropertyType}>
-                <SelectTrigger className={`bg-background h-11 text-sm ${propertyType ? isPropertyTypeEligible(propertyType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
-                  <SelectValue placeholder="Select Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROPERTY_TYPES.map(type => (
-                    <SelectItem key={type} value={type} className={isPropertyTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex h-11 w-full bg-muted/20 rounded-md p-1 border">
+                <button
+                  onClick={() => setHasLatePayments(true)}
+                  className={`flex-1 rounded-sm text-sm font-medium transition-all ${hasLatePayments === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setHasLatePayments(false)}
+                  className={`flex-1 rounded-sm text-sm font-medium transition-all ${hasLatePayments === false ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                >
+                  No
+                </button>
+              </div>
             </div>
 
-            {/* Ownership Type */}
-            <div className="space-y-1.5">
+            {/* Credit Score */}
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <User className="w-3.5 h-3.5 text-accent" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Ownership</span>
+                <TrendingUp className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Credit Score Below 620?</span>
               </div>
-              <Select value={ownershipType} onValueChange={setOwnershipType}>
-                <SelectTrigger className={`bg-background h-11 text-sm ${ownershipType ? isOwnershipTypeEligible(ownershipType) ? 'border-emerald-500/50 ring-emerald-500/20' : 'border-destructive ring-destructive/20' : ''}`}>
-                  <SelectValue placeholder="Select Ownership" />
-                </SelectTrigger>
-                <SelectContent>
-                  {OWNERSHIP_TYPES.map(type => (
-                    <SelectItem key={type} value={type} className={isOwnershipTypeEligible(type) ? 'text-emerald-700 font-medium' : 'text-destructive'}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex h-11 w-full bg-muted/20 rounded-md p-1 border">
+                <button
+                  onClick={() => setIsCreditScoreLow(true)}
+                  className={`flex-1 rounded-sm text-sm font-medium transition-all ${isCreditScoreLow === true ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setIsCreditScoreLow(false)}
+                  className={`flex-1 rounded-sm text-sm font-medium transition-all ${isCreditScoreLow === false ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-background/50'}`}
+                >
+                  No
+                </button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -826,7 +982,7 @@ export function WizardStep1({
           variant="success"
           onClick={handleConfirmProperty}
           className="flex-1"
-          disabled={!isFullyEligible}
+          disabled={!isFullyEligible || isEmployed === null || hasLatePayments === null || isCreditScoreLow === null}
         >
           Confirm Property Details
         </Button>

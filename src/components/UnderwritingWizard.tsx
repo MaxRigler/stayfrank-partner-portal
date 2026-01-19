@@ -18,6 +18,9 @@ interface PropertyData {
   ownershipType: string;
   currentCLTV: number;
   ownerNames: string[];
+  isEmployed: boolean | null;
+  hasLatePayments: boolean | null;
+  isCreditScoreLow: boolean | null;
 }
 
 export function UnderwritingWizard({ address, onBack }: UnderwritingWizardProps) {
