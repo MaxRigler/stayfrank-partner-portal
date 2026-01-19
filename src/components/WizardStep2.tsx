@@ -27,11 +27,10 @@ export interface PersonalDetailsData {
 }
 
 const CREDIT_SCORE_OPTIONS = [
-    { value: 'excellent', label: 'Excellent (750+)' },
-    { value: 'good', label: 'Good (700-749)' },
-    { value: 'fair', label: 'Fair (650-699)' },
-    { value: 'below_650', label: 'Below 650' },
-    { value: 'unsure', label: 'Unsure' },
+    { value: '620_plus', label: '620+' },
+    { value: '580_620', label: '580-620' },
+    { value: '550_580', label: '550-580' },
+    { value: 'below_550', label: 'Below 550' },
 ];
 
 // Fallback if dynamic options fail to load
@@ -144,9 +143,6 @@ function MultiSelectReasons({
 }
 
 export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props) {
-    // Initialize state based on number of owners
-    const ownerCount = ownerNames.length || 1;
-
     // Fetch dynamic funding reasons from Supabase
     const { reasons: fundingReasons, loading: reasonsLoading } = useFundingReasons();
 
@@ -155,12 +151,8 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
         ? fundingReasons.map(r => ({ value: r.value, label: r.label }))
         : DEFAULT_MONEY_REASON_OPTIONS;
 
-    const [names, setNames] = useState<string[]>(
-        ownerNames.length > 0 ? [...ownerNames] : ['']
-    );
-    const [emails, setEmails] = useState<string[]>(Array(ownerCount).fill(''));
-    const [phones, setPhones] = useState<string[]>(Array(ownerCount).fill(''));
-    const [creditScores, setCreditScores] = useState<string[]>(Array(ownerCount).fill(''));
+    // Simplified state - single homeowner assumption
+    const [creditScore, setCreditScore] = useState('');
 
     // Shared fields
     const [mortgageCurrent, setMortgageCurrent] = useState<boolean | null>(null);
@@ -176,150 +168,29 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
         );
     };
 
-    const updateName = (index: number, value: string) => {
-        const newNames = [...names];
-        newNames[index] = value;
-        setNames(newNames);
-    };
-
-    const updateEmail = (index: number, value: string) => {
-        const newEmails = [...emails];
-        newEmails[index] = value;
-        setEmails(newEmails);
-    };
-
-    const updatePhone = (index: number, value: string) => {
-        const newPhones = [...phones];
-        newPhones[index] = value;
-        setPhones(newPhones);
-    };
-
-    const updateCreditScore = (index: number, value: string) => {
-        const newScores = [...creditScores];
-        newScores[index] = value;
-        setCreditScores(newScores);
-    };
-
-    const formatPhoneNumber = (value: string) => {
-        const numbers = value.replace(/\D/g, '');
-        if (numbers.length <= 3) return numbers;
-        if (numbers.length <= 6) return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
-        return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`;
-    };
-
-    const handlePhoneChange = (index: number, value: string) => {
-        updatePhone(index, formatPhoneNumber(value));
-    };
-
-    // Validation
+    // Validation - simplified for single homeowner
     const isValid = () => {
-        // Check all owner-specific fields
-        for (let i = 0; i < ownerCount; i++) {
-            if (!names[i]?.trim()) return false;
-            if (!emails[i]?.trim() || !emails[i].includes('@')) return false;
-            if (!phones[i]?.trim() || phones[i].replace(/\D/g, '').length < 10) return false;
-            if (!creditScores[i]) return false;
-        }
-        // Check shared fields
         if (mortgageCurrent === null) return false;
         if (moneyReasons.length === 0) return false;
         if (!moneyAmount) return false;
+        if (!creditScore) return false;
         return true;
     };
 
     const handleContinue = () => {
         if (isValid()) {
             onComplete({
-                ownerNames: names,
-                ownerEmails: emails,
-                ownerPhones: phones,
-                ownerCreditScores: creditScores,
+                // Maintain backward compatibility with existing interface
+                ownerNames: ownerNames.length > 0 ? ownerNames : [''],
+                ownerEmails: [''],
+                ownerPhones: [''],
+                ownerCreditScores: [creditScore],
                 mortgageCurrent: mortgageCurrent!,
                 moneyReasons,
                 moneyAmount,
                 helpfulContext,
             });
         }
-    };
-
-    const renderOwnerSection = (index: number) => {
-        const isMultipleOwners = ownerCount > 1;
-        const sectionTitle = isMultipleOwners ? `Homeowner ${index + 1}` : 'Homeowner Details';
-
-        return (
-            <Card key={index} className="border-t-4 border-t-accent shadow-sm hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        <div className="p-2 bg-accent/10 rounded-full">
-                            <User className="w-4 h-4 text-accent" />
-                        </div>
-                        {sectionTitle}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Owner Name */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
-                            Full Name
-                        </Label>
-                        <Input
-                            type="text"
-                            value={names[index] || ''}
-                            onChange={(e) => updateName(index, e.target.value)}
-                            placeholder="Enter full name"
-                            className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20"
-                        />
-                    </div>
-
-                    {/* Email */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
-                            Email Address
-                        </Label>
-                        <Input
-                            type="email"
-                            value={emails[index] || ''}
-                            onChange={(e) => updateEmail(index, e.target.value)}
-                            placeholder="email@example.com"
-                            className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20"
-                        />
-                    </div>
-
-                    {/* Phone */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
-                            Phone Number
-                        </Label>
-                        <Input
-                            type="tel"
-                            value={phones[index] || ''}
-                            onChange={(e) => handlePhoneChange(index, e.target.value)}
-                            placeholder="(555) 555-5555"
-                            className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20"
-                        />
-                    </div>
-
-                    {/* Credit Score */}
-                    <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
-                            Estimated Credit Score
-                        </Label>
-                        <Select value={creditScores[index] || ''} onValueChange={(value) => updateCreditScore(index, value)}>
-                            <SelectTrigger className="bg-background h-11 border-input focus:border-accent focus:ring-accent/20">
-                                <SelectValue placeholder="Select credit score range" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {CREDIT_SCORE_OPTIONS.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardContent>
-            </Card>
-        );
     };
 
     const renderFinancialDetails = () => (
@@ -388,6 +259,25 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
                         </SelectContent>
                     </Select>
                 </div>
+
+                {/* Estimated Credit Score - moved from Homeowner Details */}
+                <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-1 text-left block">
+                        Estimated Credit Score Range
+                    </Label>
+                    <Select value={creditScore} onValueChange={setCreditScore}>
+                        <SelectTrigger className="bg-background h-11 border-input focus:border-emerald-500 focus:ring-emerald-500/20">
+                            <SelectValue placeholder="Select credit score range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {CREDIT_SCORE_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardContent>
         </Card>
     );
@@ -420,53 +310,15 @@ export function WizardStep2({ ownerNames, onComplete, onBack }: WizardStep2Props
 
     return (
         <div className="space-y-4">
-            {/* Desktop Layout */}
-            <div className="hidden md:block">
-                {/* Two owners: side by side owners, then financial details below */}
-                {ownerCount > 1 ? (
-                    <>
-                        <div className="grid grid-cols-2 gap-6 mb-6">
-                            {Array.from({ length: ownerCount }).map((_, i) => renderOwnerSection(i))}
-                        </div>
-
-                        {/* Shared Fields Card */}
-                        <div className="mb-4">
-                            {renderFinancialDetails()}
-                        </div>
-
-                        {/* Helpful Context Section */}
-                        <div className="mb-4">
-                            {renderHelpfulContextSection()}
-                        </div>
-                    </>
-                ) : (
-                    /* Single owner: homeowner details on left, financial details on right */
-                    <>
-                        <div className="grid grid-cols-2 gap-6 mb-4">
-                            {/* Left Column - Homeowner Details */}
-                            {renderOwnerSection(0)}
-
-                            {/* Right Column - Financial Details */}
-                            {renderFinancialDetails()}
-                        </div>
-
-                        {/* Helpful Context Section - Full width below */}
-                        <div className="mb-4">
-                            {renderHelpfulContextSection()}
-                        </div>
-                    </>
-                )}
+            {/* Desktop Layout - Single column with Financial Details on top */}
+            <div className="hidden md:block space-y-4">
+                {renderFinancialDetails()}
+                {renderHelpfulContextSection()}
             </div>
 
             {/* Mobile Layout */}
             <div className="md:hidden space-y-4">
-                {/* Owner sections - stacked */}
-                {Array.from({ length: ownerCount }).map((_, i) => renderOwnerSection(i))}
-
-                {/* Financial Details Card */}
                 {renderFinancialDetails()}
-
-                {/* Helpful Context Section */}
                 {renderHelpfulContextSection()}
             </div>
 
